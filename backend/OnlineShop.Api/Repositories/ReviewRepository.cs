@@ -1,4 +1,5 @@
 using MongoDB.Driver;
+using MongoDB.Bson;
 using OnlineShop.Api.Models;
 
 namespace OnlineShop.Api.Repositories;
@@ -9,22 +10,73 @@ public class ReviewRepository : IReviewRepository
 
     public ReviewRepository(IConfiguration config)
     {
-        var client = new MongoClient(config["MongoDB:ConnectionURI"]);
-        var db = client.GetDatabase(config["MongoDB:DatabaseName"]);
+        var connectionUri = config["MongoDB:ConnectionURI"]
+            ?? throw new InvalidOperationException("MongoDB:ConnectionURI missing in configuration.");
+
+        var dbName = config["MongoDB:DatabaseName"]
+            ?? throw new InvalidOperationException("MongoDB:DatabaseName missing in configuration.");
+
+        var client = new MongoClient(connectionUri);
+        var db = client.GetDatabase(dbName);
+
         _reviews = db.GetCollection<Review>("Reviews");
     }
 
-    public async Task<List<Review>> GetByProductIdAsync(string productId) =>
-        await _reviews.Find(r => r.ProductId == productId).ToListAsync();
+    // ---------------------------------------------------------
+    // CREATE
+    // ---------------------------------------------------------
 
-    public async Task<Review?> GetByIdAsync(string id) =>
-        await _reviews.Find(r => r.Id == id).FirstOrDefaultAsync();
+    public async Task CreateAsync(Review review)
+    {
+        if (string.IsNullOrWhiteSpace(review.Id))
+            review.Id = ObjectId.GenerateNewId().ToString();
 
-    public async Task CreateAsync(Review review) =>
         await _reviews.InsertOneAsync(review);
+    }
+
+    // ---------------------------------------------------------
+    // READ
+    // ---------------------------------------------------------
+
+    public async Task<List<Review>> GetByProductIdAsync(string productId)
+    {
+        if (!ObjectId.TryParse(productId, out _))
+            return new List<Review>();
+
+        return await _reviews.Find(r => r.ProductId == productId).ToListAsync();
+    }
+
+    public async Task<Review?> GetByIdAsync(string id)
+    {
+        if (!ObjectId.TryParse(id, out _))
+            return null;
+
+        return await _reviews.Find(r => r.Id == id).FirstOrDefaultAsync();
+    }
+
+    // ---------------------------------------------------------
+    // UPDATE
+    // ---------------------------------------------------------
+
+    public async Task<bool> UpdateAsync(Review review)
+    {
+        if (!ObjectId.TryParse(review.Id, out _))
+            return false;
+
+        var result = await _reviews.ReplaceOneAsync(r => r.Id == review.Id, review);
+
+        return result.MatchedCount > 0;
+    }
+
+    // ---------------------------------------------------------
+    // DELETE
+    // ---------------------------------------------------------
 
     public async Task<bool> DeleteAsync(string id)
     {
+        if (!ObjectId.TryParse(id, out _))
+            return false;
+
         var result = await _reviews.DeleteOneAsync(r => r.Id == id);
         return result.DeletedCount > 0;
     }

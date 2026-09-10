@@ -1,4 +1,5 @@
 using MongoDB.Driver;
+using MongoDB.Bson;
 using OnlineShop.Api.Models;
 
 namespace OnlineShop.Api.Repositories;
@@ -9,26 +10,52 @@ public class InventoryRepository : IInventoryRepository
 
     public InventoryRepository(IConfiguration config)
     {
-        var client = new MongoClient(config["MongoDB:ConnectionURI"]);
-        var db = client.GetDatabase(config["MongoDB:DatabaseName"]);
+        var connectionUri = config["MongoDB:ConnectionURI"]
+            ?? throw new InvalidOperationException("MongoDB:ConnectionURI missing in configuration.");
+
+        var dbName = config["MongoDB:DatabaseName"]
+            ?? throw new InvalidOperationException("MongoDB:DatabaseName missing in configuration.");
+
+        var client = new MongoClient(connectionUri);
+        var db = client.GetDatabase(dbName);
+
         _products = db.GetCollection<Product>("Products");
     }
 
+    // ---------------------------------------------------------
+    // INCREASE STOCK
+    // ---------------------------------------------------------
+
     public async Task<bool> IncreaseStockAsync(string productId, int amount)
     {
+        if (!ObjectId.TryParse(productId, out _))
+            return false;
+
         var update = Builders<Product>.Update.Inc(p => p.StockQuantity, amount);
         var result = await _products.UpdateOneAsync(p => p.Id == productId, update);
-        return result.ModifiedCount > 0;
+
+        return result.MatchedCount > 0;
     }
+
+    // ---------------------------------------------------------
+    // DECREASE STOCK
+    // ---------------------------------------------------------
 
     public async Task<bool> DecreaseStockAsync(string productId, int amount)
     {
+        if (!ObjectId.TryParse(productId, out _))
+            return false;
+
         var product = await _products.Find(p => p.Id == productId).FirstOrDefaultAsync();
-        if (product == null || product.StockQuantity < amount)
+        if (product == null)
+            return false;
+
+        if (product.StockQuantity < amount)
             return false;
 
         var update = Builders<Product>.Update.Inc(p => p.StockQuantity, -amount);
         var result = await _products.UpdateOneAsync(p => p.Id == productId, update);
-        return result.ModifiedCount > 0;
+
+        return result.MatchedCount > 0;
     }
 }
