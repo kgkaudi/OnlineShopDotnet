@@ -6,7 +6,8 @@ public abstract class RepositoryTestBase : IClassFixture<MongoTestFixture>
     {
         Fixture = fixture;
 
-        // Clean the Products collection before each test
+        // Clean collections before each test
         Fixture.Database.DropCollection("Products");
+        Fixture.Database.DropCollection("Users");
     }
 }

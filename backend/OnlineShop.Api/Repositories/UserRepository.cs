@@ -14,6 +14,9 @@ public class UserRepository : IUserRepository
         _users = db.GetCollection<User>("Users");
     }
 
+    public async Task CreateAsync(User user) =>
+        await _users.InsertOneAsync(user);
+
     public async Task<List<User>> GetAllAsync() =>
         await _users.Find(_ => true).ToListAsync();
 
@@ -25,8 +28,16 @@ public class UserRepository : IUserRepository
 
     public async Task<bool> AddRoleAsync(string userId, string role)
     {
+        var user = await _users.Find(u => u.Id == userId).FirstOrDefaultAsync();
+        if (user == null)
+            return false;
+
+        if (user.Roles.Contains(role))
+            return true;
+
         var update = Builders<User>.Update.AddToSet(u => u.Roles, role);
         var result = await _users.UpdateOneAsync(u => u.Id == userId, update);
+
         return result.ModifiedCount > 0;
     }
 
