@@ -47,6 +47,10 @@ public class CouponsController : ControllerBase
             return BadRequest("Expiration date must be in the future.");
 
         var created = await _service.CreateAsync(coupon);
+
+        if (created == null)
+            return BadRequest("Failed to create coupon.");
+
         return CreatedAtAction(nameof(GetAll), new { id = created.Id }, created);
     }
 

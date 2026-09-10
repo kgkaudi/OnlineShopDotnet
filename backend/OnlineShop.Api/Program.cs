@@ -4,6 +4,8 @@ using Microsoft.IdentityModel.Tokens;
 using OnlineShop.Api.Services;
 using OnlineShop.Api.Settings;
 using OnlineShop.Api.Repositories;
+using MongoDB.Driver;
+using OnlineShop.Api.Migrations;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +15,15 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<MongoDbSettings>(
     builder.Configuration.GetSection("MongoDB")
 );
+
+// Register MongoDB client
+builder.Services.AddSingleton<IMongoClient>(sp =>
+{
+    var settings = builder.Configuration.GetSection("MongoDB").Get<MongoDbSettings>()
+        ?? throw new InvalidOperationException("MongoDB settings missing or invalid.");
+
+    return new MongoClient(settings.ConnectionString);
+});
 
 // ----------------------------
 // Authentication + JWT
@@ -95,6 +106,16 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// ----------------------------
+// Run MongoDB Migration + Seed
+// ----------------------------
+using (var scope = app.Services.CreateScope())
+{
+    var client = scope.ServiceProvider.GetRequiredService<IMongoClient>();
+    var migration = new MigrationRunner(client);
+    await migration.RunAsync();
+}
 
 // ----------------------------
 // Development tools
