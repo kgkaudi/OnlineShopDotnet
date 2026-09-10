@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OnlineShop.Api.Models;
 using OnlineShop.Api.Services;
+using MongoDB.Bson;
 
 namespace OnlineShop.Api.Controllers;
 
@@ -32,8 +33,12 @@ public class ProductsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
+        if (!ObjectId.TryParse(id, out _))
+            return BadRequest("Invalid product id.");
+
         var product = await _service.GetByIdAsync(id);
-        if (product == null) return NotFound("Product not found");
+        if (product == null)
+            return NotFound("Product not found.");
 
         return Ok(product);
     }
@@ -52,6 +57,12 @@ public class ProductsController : ControllerBase
         bool descending = false
     )
     {
+        if (categoryId != null && !ObjectId.TryParse(categoryId, out _))
+            return BadRequest("Invalid category id.");
+
+        if (minPrice < 0 || maxPrice < 0)
+            return BadRequest("Price cannot be negative.");
+
         var results = await _service.SearchAsync(
             keyword,
             categoryId,
@@ -72,6 +83,12 @@ public class ProductsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(Product product)
     {
+        if (string.IsNullOrWhiteSpace(product.Name))
+            return BadRequest("Product name is required.");
+
+        if (product.Price <= 0)
+            return BadRequest("Price must be greater than zero.");
+
         var created = await _service.CreateAsync(product);
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
@@ -83,10 +100,20 @@ public class ProductsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, Product product)
     {
+        if (!ObjectId.TryParse(id, out _))
+            return BadRequest("Invalid product id.");
+
+        if (string.IsNullOrWhiteSpace(product.Name))
+            return BadRequest("Product name is required.");
+
+        if (product.Price <= 0)
+            return BadRequest("Price must be greater than zero.");
+
         product.Id = id;
 
         var success = await _service.UpdateAsync(product);
-        if (!success) return NotFound("Product not found");
+        if (!success)
+            return NotFound("Product not found.");
 
         return Ok(product);
     }
@@ -98,8 +125,12 @@ public class ProductsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
+        if (!ObjectId.TryParse(id, out _))
+            return BadRequest("Invalid product id.");
+
         var success = await _service.DeleteAsync(id);
-        if (!success) return NotFound("Product not found");
+        if (!success)
+            return NotFound("Product not found.");
 
         return Ok(new { message = "Product deleted successfully" });
     }

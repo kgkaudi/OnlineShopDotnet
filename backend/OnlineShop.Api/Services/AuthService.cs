@@ -1,38 +1,26 @@
-using MongoDB.Driver;
 using MongoDB.Bson;
 using OnlineShop.Api.Models;
-using System.Security.Cryptography;
-using System.Text;
+using OnlineShop.Api.Repositories;
+using Microsoft.Extensions.Configuration;
 
 namespace OnlineShop.Api.Services;
 
 public class AuthService : IAuthService
 {
-    private readonly IMongoCollection<User> _users;
+    private readonly IUserRepository _repo;
     private readonly IJwtService _jwt;
+    private readonly IConfiguration _config;
 
-    public AuthService(IConfiguration config, IJwtService jwt)
+    public AuthService(IConfiguration config, IJwtService jwt, IUserRepository repo)
     {
-        var connectionUri = config["MongoDB:ConnectionURI"]
-            ?? throw new InvalidOperationException("MongoDB:ConnectionURI missing in configuration.");
-
-        var dbName = config["MongoDB:DatabaseName"]
-            ?? throw new InvalidOperationException("MongoDB:DatabaseName missing in configuration.");
-
-        var client = new MongoClient(connectionUri);
-        var db = client.GetDatabase(dbName);
-
-        _users = db.GetCollection<User>("Users");
+        _config = config;
         _jwt = jwt;
+        _repo = repo;
     }
-
-    // ---------------------------------------------------------
-    // REGISTER
-    // ---------------------------------------------------------
 
     public async Task<User?> RegisterAsync(string email, string password, string fullName)
     {
-        var existing = await _users.Find(u => u.Email == email).FirstOrDefaultAsync();
+        var existing = await _repo.GetByEmailAsync(email);
         if (existing != null)
             return null;
 
@@ -41,59 +29,31 @@ public class AuthService : IAuthService
             Id = ObjectId.GenerateNewId().ToString(),
             Email = email,
             FullName = fullName,
-            PasswordHash = HashPassword(password),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
             Roles = new List<string> { "User" }
         };
 
-        await _users.InsertOneAsync(user);
+        await _repo.CreateAsync(user);
         return user;
     }
 
-    // ---------------------------------------------------------
-    // LOGIN
-    // ---------------------------------------------------------
-
     public async Task<string?> LoginAsync(string email, string password)
     {
-        var user = await _users.Find(u => u.Email == email).FirstOrDefaultAsync();
+        var user = await _repo.GetByEmailAsync(email);
         if (user == null)
             return null;
 
-        if (!VerifyPassword(password, user.PasswordHash))
+        if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             return null;
 
         return _jwt.GenerateToken(user);
     }
-
-    // ---------------------------------------------------------
-    // ADD ROLE
-    // ---------------------------------------------------------
 
     public async Task<bool> AddRoleAsync(string userId, string role)
     {
         if (!ObjectId.TryParse(userId, out _))
             return false;
 
-        var update = Builders<User>.Update.AddToSet(u => u.Roles, role);
-        var result = await _users.UpdateOneAsync(u => u.Id == userId, update);
-
-        return result.MatchedCount > 0;
-    }
-
-    // ---------------------------------------------------------
-    // PASSWORD HASHING
-    // ---------------------------------------------------------
-
-    private string HashPassword(string password)
-    {
-        using var sha = SHA256.Create();
-        return Convert.ToHexString(
-            sha.ComputeHash(Encoding.UTF8.GetBytes(password))
-        );
-    }
-
-    private bool VerifyPassword(string password, string storedHash)
-    {
-        return storedHash == HashPassword(password);
+        return await _repo.AddRoleAsync(userId, role);
     }
 }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OnlineShop.Api.Models;
 using OnlineShop.Api.Services;
+using MongoDB.Bson;
 
 namespace OnlineShop.Api.Controllers;
 
@@ -16,7 +17,10 @@ public class CouponsController : ControllerBase
         _service = service;
     }
 
-    // GET all coupons (Admin)
+    // ---------------------------------------------------------
+    // GET ALL (Admin)
+    // ---------------------------------------------------------
+
     [Authorize(Roles = "Admin")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
@@ -25,32 +29,58 @@ public class CouponsController : ControllerBase
         return Ok(coupons);
     }
 
-    // CREATE coupon (Admin)
+    // ---------------------------------------------------------
+    // CREATE (Admin)
+    // ---------------------------------------------------------
+
     [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<IActionResult> Create(Coupon coupon)
     {
+        if (string.IsNullOrWhiteSpace(coupon.Code))
+            return BadRequest("Coupon code is required.");
+
+        if (coupon.Value <= 0)
+            return BadRequest("Coupon value must be greater than zero.");
+
+        if (coupon.Expiration <= DateTime.UtcNow)
+            return BadRequest("Expiration date must be in the future.");
+
         var created = await _service.CreateAsync(coupon);
-        return Ok(created);
+        return CreatedAtAction(nameof(GetAll), new { id = created.Id }, created);
     }
 
-    // DELETE coupon (Admin)
+    // ---------------------------------------------------------
+    // DELETE (Admin)
+    // ---------------------------------------------------------
+
     [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        var success = await _service.DeleteAsync(id);
-        if (!success) return NotFound("Coupon not found");
+        if (!ObjectId.TryParse(id, out _))
+            return BadRequest("Invalid coupon id.");
 
-        return Ok(new { message = "Coupon deleted" });
+        var success = await _service.DeleteAsync(id);
+        if (!success)
+            return NotFound("Coupon not found.");
+
+        return NoContent();
     }
 
-    // VALIDATE coupon (Public)
+    // ---------------------------------------------------------
+    // VALIDATE (Public)
+    // ---------------------------------------------------------
+
     [HttpGet("validate/{code}")]
     public async Task<IActionResult> Validate(string code)
     {
+        if (string.IsNullOrWhiteSpace(code))
+            return BadRequest("Coupon code is required.");
+
         var coupon = await _service.ValidateAsync(code);
-        if (coupon == null) return BadRequest("Invalid or expired coupon");
+        if (coupon == null)
+            return BadRequest("Invalid or expired coupon.");
 
         return Ok(coupon);
     }

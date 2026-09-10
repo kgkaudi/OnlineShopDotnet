@@ -1,28 +1,42 @@
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
 using MongoDB.Bson;
-using MongoDB.Driver;
 using OnlineShop.Api.Models;
+using OnlineShop.Api.Repositories;
 using OnlineShop.Api.Services;
 using Xunit;
 
 public class AuthServiceTests : RepositoryTestBase
 {
     private readonly AuthService _auth;
-    private readonly IMongoCollection<User> _users;
-    private readonly FakeJwtService _jwt;
+    private readonly UserRepository _userRepo;
+    private readonly JwtService _jwt;
 
     public AuthServiceTests(MongoTestFixture fixture)
         : base(fixture)
     {
-        var config = TestConfiguration.Create(
+        var dbConfig = TestConfiguration.Create(
             fixture.Runner.ConnectionString,
             "OnlineShop_TestDb"
         );
 
-        _jwt = new FakeJwtService();
-        _auth = new AuthService(config, _jwt);
+        _userRepo = new UserRepository(dbConfig);
 
-        _users = Fixture.Database.GetCollection<User>("Users");
+        var jwtConfig = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:Key"] = "THIS_IS_A_LONG_ENOUGH_TEST_KEY_1234567890",
+                ["Jwt:Issuer"] = "TestIssuer",
+                ["Jwt:Audience"] = "TestAudience",
+                ["Jwt:ExpiresInMinutes"] = "30"
+            })
+            .Build();
+
+        _jwt = new JwtService(jwtConfig);
+
+        // FIX: AuthService now requires (config, jwt, repo)
+        _auth = new AuthService(jwtConfig, _jwt, _userRepo);
+
         Fixture.Database.DropCollection("Users");
     }
 
@@ -38,7 +52,7 @@ public class AuthServiceTests : RepositoryTestBase
         user.Should().NotBeNull();
         user!.Email.Should().Be("test@example.com");
 
-        var fetched = await _users.Find(u => u.Email == "test@example.com").FirstOrDefaultAsync();
+        var fetched = await _userRepo.GetByEmailAsync("test@example.com");
         fetched.Should().NotBeNull();
     }
 
@@ -63,7 +77,6 @@ public class AuthServiceTests : RepositoryTestBase
         var token = await _auth.LoginAsync("login@example.com", "mypassword");
 
         token.Should().NotBeNull();
-        token.Should().Be("FAKE_JWT_TOKEN");
     }
 
     [Fact]
@@ -113,23 +126,12 @@ public class AuthServiceTests : RepositoryTestBase
             Roles = new List<string> { "User" }
         };
 
-        await _users.InsertOneAsync(user);
+        await _userRepo.CreateAsync(user);
 
         var updated = await _auth.AddRoleAsync(user.Id, "Admin");
         updated.Should().BeTrue();
 
-        var fetched = await _users.Find(u => u.Id == user.Id).FirstOrDefaultAsync();
+        var fetched = await _userRepo.GetByIdAsync(user.Id);
         fetched!.Roles.Should().Contain("Admin");
     }
-}
-
-// ---------------------------------------------------------
-// FAKE JWT SERVICE FOR TESTING
-// ---------------------------------------------------------
-
-public class FakeJwtService : IJwtService
-{
-    public string GenerateToken(User user) => "FAKE_JWT_TOKEN";
-
-    public DateTime GetExpiration() => DateTime.UtcNow.AddHours(1);
 }

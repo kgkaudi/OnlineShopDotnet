@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OnlineShop.Api.Models;
 using OnlineShop.Api.Services;
+using MongoDB.Bson;
 
 namespace OnlineShop.Api.Controllers;
 
@@ -16,16 +17,20 @@ public class OrdersController : ControllerBase
         _service = service;
     }
 
+    private string? GetUserId() => User.FindFirst("sub")?.Value;
+
     // ---------------------------------------------------------
-    // GET ALL ORDERS
-    // Admin → all orders
-    // User → only their orders
+    // GET ALL
     // ---------------------------------------------------------
+
     [Authorize]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var userId = User.FindFirst("sub")?.Value!;
+        var userId = GetUserId();
+        if (userId == null || !ObjectId.TryParse(userId, out _))
+            return Unauthorized("Invalid user token.");
+
         var isAdmin = User.IsInRole("Admin");
 
         var orders = await _service.GetAllAsync(isAdmin, userId);
@@ -33,31 +38,45 @@ public class OrdersController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // GET ORDER BY ID
-    // Admin → any order
-    // User → only their own
+    // GET BY ID
     // ---------------------------------------------------------
+
     [Authorize]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
-        var userId = User.FindFirst("sub")?.Value!;
+        var userId = GetUserId();
+        if (userId == null || !ObjectId.TryParse(userId, out _))
+            return Unauthorized("Invalid user token.");
+
+        if (!ObjectId.TryParse(id, out _))
+            return BadRequest("Invalid order id.");
+
         var isAdmin = User.IsInRole("Admin");
 
         var order = await _service.GetByIdAsync(id, isAdmin, userId);
-        if (order == null) return Forbid();
+        if (order == null)
+            return Forbid();
 
         return Ok(order);
     }
 
     // ---------------------------------------------------------
-    // CREATE ORDER (User)
+    // CREATE
     // ---------------------------------------------------------
+
     [Authorize]
     [HttpPost]
     public async Task<IActionResult> Create(Order order)
     {
-        order.UserId = User.FindFirst("sub")?.Value!;
+        var userId = GetUserId();
+        if (userId == null || !ObjectId.TryParse(userId, out _))
+            return Unauthorized("Invalid user token.");
+
+        if (order.Items == null || !order.Items.Any())
+            return BadRequest("Order must contain at least one item.");
+
+        order.UserId = userId;
         order.CreatedAt = DateTime.UtcNow;
 
         var created = await _service.CreateAsync(order);
@@ -65,39 +84,51 @@ public class OrdersController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // UPDATE ORDER
-    // Admin → any order
-    // User → only their own
+    // UPDATE
     // ---------------------------------------------------------
+
     [Authorize]
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, Order order)
     {
+        var userId = GetUserId();
+        if (userId == null || !ObjectId.TryParse(userId, out _))
+            return Unauthorized("Invalid user token.");
+
+        if (!ObjectId.TryParse(id, out _))
+            return BadRequest("Invalid order id.");
+
         order.Id = id;
 
-        var userId = User.FindFirst("sub")?.Value!;
         var isAdmin = User.IsInRole("Admin");
 
         var success = await _service.UpdateAsync(order, isAdmin, userId);
-        if (!success) return Forbid();
+        if (!success)
+            return Forbid();
 
         return Ok(order);
     }
 
     // ---------------------------------------------------------
-    // DELETE ORDER
-    // Admin → any order
-    // User → only their own
+    // DELETE
     // ---------------------------------------------------------
+
     [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        var userId = User.FindFirst("sub")?.Value!;
+        var userId = GetUserId();
+        if (userId == null || !ObjectId.TryParse(userId, out _))
+            return Unauthorized("Invalid user token.");
+
+        if (!ObjectId.TryParse(id, out _))
+            return BadRequest("Invalid order id.");
+
         var isAdmin = User.IsInRole("Admin");
 
         var success = await _service.DeleteAsync(id, isAdmin, userId);
-        if (!success) return Forbid();
+        if (!success)
+            return Forbid();
 
         return Ok(new { message = "Order deleted successfully" });
     }

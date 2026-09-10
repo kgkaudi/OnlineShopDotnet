@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OnlineShop.Api.Services;
+using MongoDB.Bson;
 
 namespace OnlineShop.Api.Controllers;
 
@@ -15,48 +16,103 @@ public class CartController : ControllerBase
         _service = service;
     }
 
+    private string? GetUserId()
+    {
+        return User.FindFirst("sub")?.Value;
+    }
+
+    // ---------------------------------------------------------
+    // GET CART
+    // ---------------------------------------------------------
+
     [Authorize]
     [HttpGet]
     public async Task<IActionResult> Get()
     {
-        var userId = User.FindFirst("sub")?.Value!;
+        var userId = GetUserId();
+        if (userId == null || !ObjectId.TryParse(userId, out _))
+            return Unauthorized("Invalid user token");
+
         var cart = await _service.GetOrCreateAsync(userId);
         return Ok(cart);
     }
+
+    // ---------------------------------------------------------
+    // ADD ITEM
+    // ---------------------------------------------------------
 
     [Authorize]
     [HttpPost("add")]
     public async Task<IActionResult> Add(string productId, int quantity)
     {
-        var userId = User.FindFirst("sub")?.Value!;
+        var userId = GetUserId();
+        if (userId == null || !ObjectId.TryParse(userId, out _))
+            return Unauthorized("Invalid user token");
+
+        if (!ObjectId.TryParse(productId, out _))
+            return BadRequest("Invalid productId");
+
+        if (quantity <= 0)
+            return BadRequest("Quantity must be greater than zero");
+
         var cart = await _service.AddItemAsync(userId, productId, quantity);
         return Ok(cart);
     }
+
+    // ---------------------------------------------------------
+    // UPDATE ITEM
+    // ---------------------------------------------------------
 
     [Authorize]
     [HttpPut("update")]
     public async Task<IActionResult> Update(string productId, int quantity)
     {
-        var userId = User.FindFirst("sub")?.Value!;
+        var userId = GetUserId();
+        if (userId == null || !ObjectId.TryParse(userId, out _))
+            return Unauthorized("Invalid user token");
+
+        if (!ObjectId.TryParse(productId, out _))
+            return BadRequest("Invalid productId");
+
+        if (quantity < 0)
+            return BadRequest("Quantity cannot be negative");
+
         var cart = await _service.UpdateQuantityAsync(userId, productId, quantity);
         return Ok(cart);
     }
+
+    // ---------------------------------------------------------
+    // REMOVE ITEM
+    // ---------------------------------------------------------
 
     [Authorize]
     [HttpDelete("remove")]
     public async Task<IActionResult> Remove(string productId)
     {
-        var userId = User.FindFirst("sub")?.Value!;
+        var userId = GetUserId();
+        if (userId == null || !ObjectId.TryParse(userId, out _))
+            return Unauthorized("Invalid user token");
+
+        if (!ObjectId.TryParse(productId, out _))
+            return BadRequest("Invalid productId");
+
         var cart = await _service.RemoveItemAsync(userId, productId);
         return Ok(cart);
     }
+
+    // ---------------------------------------------------------
+    // CLEAR CART
+    // ---------------------------------------------------------
 
     [Authorize]
     [HttpDelete("clear")]
     public async Task<IActionResult> Clear()
     {
-        var userId = User.FindFirst("sub")?.Value!;
-        var success = await _service.ClearAsync(userId);
+        var userId = GetUserId();
+        if (userId == null || !ObjectId.TryParse(userId, out _))
+            return Unauthorized("Invalid user token");
+
+        await _service.ClearAsync(userId);
         return Ok(new { message = "Cart cleared" });
     }
 }
