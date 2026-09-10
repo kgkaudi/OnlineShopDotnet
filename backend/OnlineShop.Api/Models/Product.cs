@@ -7,13 +7,13 @@ public class Product
 {
     [BsonId]
     [BsonRepresentation(BsonType.String)]
-    public string Id { get; set; } = null!;
+    public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
 
     [BsonElement("name")]
     public string Name { get; set; } = null!;
 
     [BsonElement("description")]
-    public string Description { get; set; } = null!;
+    public string? Description { get; set; }
 
     [BsonElement("price")]
     public decimal Price { get; set; }
@@ -22,5 +22,5 @@ public class Product
     public int StockQuantity { get; set; }
 
     [BsonElement("categoryId")]
-    public string CategoryId { get; set; } = null!;
+    public string? CategoryId { get; set; }
 }
