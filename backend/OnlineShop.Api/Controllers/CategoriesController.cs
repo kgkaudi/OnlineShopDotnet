@@ -16,7 +16,7 @@ public class CategoriesController : ControllerBase
         _service = service;
     }
 
-    // GET ALL (Public)
+    // GET: api/categories
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -24,42 +24,47 @@ public class CategoriesController : ControllerBase
         return Ok(categories);
     }
 
-    // GET BY ID (Public)
+    // GET: api/categories/{id}
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
         var category = await _service.GetByIdAsync(id);
-        if (category == null) return NotFound("Category not found");
+        if (category == null)
+            return NotFound();
+
         return Ok(category);
     }
 
-    // CREATE (Admin)
-    [Authorize(Roles = "Admin")]
+    // POST: api/categories
     [HttpPost]
     public async Task<IActionResult> Create(Category category)
     {
-        var created = await _service.CreateAsync(category);
+        var created = await _service.CreateAsync(category.Name);
+        if (created == null)
+            return BadRequest("Invalid category name.");
+
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
-    // UPDATE (Admin)
-    [Authorize(Roles = "Admin")]
+    // PUT: api/categories/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, Category category)
     {
-        category.Id = id;
-        var success = await _service.UpdateAsync(category);
-        if (!success) return NotFound("Category not found");
-        return Ok(category);
+        var updated = await _service.UpdateAsync(id, category.Name);
+        if (!updated)
+            return NotFound();
+
+        return NoContent();
     }
 
-    // DELETE (Admin)
-    [Authorize(Roles = "Admin")]
+    // DELETE: api/categories/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        var success = await _service.DeleteAsync(id);
-        if (!success) return NotFound("Category not found");
-        return Ok(new { message = "Category deleted successfully" });
+        var deleted = await _service.DeleteAsync(id);
+        if (!deleted)
+            return NotFound();
+
+        return NoContent();
     }
 }

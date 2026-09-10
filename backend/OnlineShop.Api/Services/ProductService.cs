@@ -1,3 +1,4 @@
+using MongoDB.Bson;
 using OnlineShop.Api.Models;
 using OnlineShop.Api.Repositories;
 
@@ -19,20 +20,46 @@ public class ProductService : IProductService
     public async Task<List<Product>> GetAllAsync() =>
         await _repo.GetAllAsync();
 
-    public async Task<Product?> GetByIdAsync(string id) =>
-        await _repo.GetByIdAsync(id);
+    public async Task<Product?> GetByIdAsync(string id)
+    {
+        if (!ObjectId.TryParse(id, out _))
+            return null;
+
+        return await _repo.GetByIdAsync(id);
+    }
 
     public async Task<Product> CreateAsync(Product product)
     {
+        if (string.IsNullOrWhiteSpace(product.Id))
+            product.Id = ObjectId.GenerateNewId().ToString();
+
         await _repo.CreateAsync(product);
         return product;
     }
 
-    public async Task<bool> UpdateAsync(Product product) =>
-        await _repo.UpdateAsync(product);
+    public async Task<bool> UpdateAsync(Product product)
+    {
+        if (!ObjectId.TryParse(product.Id, out _))
+            return false;
 
-    public async Task<bool> DeleteAsync(string id) =>
-        await _repo.DeleteAsync(id);
+        var existing = await _repo.GetByIdAsync(product.Id!);
+        if (existing == null)
+            return false;
+
+        return await _repo.UpdateAsync(product);
+    }
+
+    public async Task<bool> DeleteAsync(string id)
+    {
+        if (!ObjectId.TryParse(id, out _))
+            return false;
+
+        var existing = await _repo.GetByIdAsync(id);
+        if (existing == null)
+            return false;
+
+        return await _repo.DeleteAsync(id);
+    }
 
     // ---------------------------------------------------------
     // SEARCH + FILTERING
