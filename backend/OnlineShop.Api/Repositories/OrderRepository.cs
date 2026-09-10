@@ -10,13 +10,13 @@ public class OrderRepository : IOrderRepository
 
     public OrderRepository(IConfiguration config)
     {
-        var connectionUri = config["MongoDB:ConnectionURI"]
-            ?? throw new InvalidOperationException("MongoDB:ConnectionURI missing in configuration.");
+        var connectionString = config["MongoDB:ConnectionString"]
+            ?? throw new InvalidOperationException("MongoDB:ConnectionString missing in configuration.");
 
         var dbName = config["MongoDB:DatabaseName"]
             ?? throw new InvalidOperationException("MongoDB:DatabaseName missing in configuration.");
 
-        var client = new MongoClient(connectionUri);
+        var client = new MongoClient(connectionString);
         var db = client.GetDatabase(dbName);
 
         _orders = db.GetCollection<Order>("Orders");

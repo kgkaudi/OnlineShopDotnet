@@ -9,8 +9,15 @@ public class UserRepository : IUserRepository
 
     public UserRepository(IConfiguration config)
     {
-        var client = new MongoClient(config["MongoDB:ConnectionURI"]);
-        var db = client.GetDatabase(config["MongoDB:DatabaseName"]);
+        var connectionString = config["MongoDB:ConnectionString"]
+            ?? throw new ArgumentNullException("MongoDB:ConnectionString", "MongoDB connection string is missing.");
+
+        var databaseName = config["MongoDB:DatabaseName"]
+            ?? throw new ArgumentNullException("MongoDB:DatabaseName", "MongoDB database name is missing.");
+
+        var client = new MongoClient(connectionString);
+        var db = client.GetDatabase(databaseName);
+
         _users = db.GetCollection<User>("Users");
     }
 

@@ -7,7 +7,7 @@ public static class TestConfiguration
     {
         var dict = new Dictionary<string, string?>
         {
-            { "MongoDB:ConnectionURI", connectionString },
+            { "MongoDB:ConnectionString", connectionString },
             { "MongoDB:DatabaseName", dbName }
         };
 

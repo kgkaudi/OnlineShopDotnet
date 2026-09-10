@@ -18,6 +18,10 @@ public class AuthService : IAuthService
         _repo = repo;
     }
 
+    // ---------------------------------------------------------
+    // REGISTER
+    // ---------------------------------------------------------
+
     public async Task<User?> RegisterAsync(string email, string password, string fullName)
     {
         var existing = await _repo.GetByEmailAsync(email);
@@ -37,10 +41,19 @@ public class AuthService : IAuthService
         return user;
     }
 
+    // ---------------------------------------------------------
+    // LOGIN
+    // ---------------------------------------------------------
+
     public async Task<string?> LoginAsync(string email, string password)
     {
         var user = await _repo.GetByEmailAsync(email);
         if (user == null)
+            return null;
+
+        // If the stored hash is NOT a valid BCrypt hash, BCrypt throws SaltParseException.
+        // So we detect legacy hashes and reject them cleanly.
+        if (!IsValidBcryptHash(user.PasswordHash))
             return null;
 
         if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
@@ -48,6 +61,18 @@ public class AuthService : IAuthService
 
         return _jwt.GenerateToken(user);
     }
+
+    private bool IsValidBcryptHash(string hash)
+    {
+        // Valid BCrypt hashes start with $2a$, $2b$, or $2y$
+        return hash.StartsWith("$2a$") ||
+               hash.StartsWith("$2b$") ||
+               hash.StartsWith("$2y$");
+    }
+
+    // ---------------------------------------------------------
+    // ADD ROLE
+    // ---------------------------------------------------------
 
     public async Task<bool> AddRoleAsync(string userId, string role)
     {

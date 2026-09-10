@@ -31,7 +31,7 @@ public static class SeedData
             Email = "admin@shop.com",
             FullName = "Admin User",
             Roles = new List<string> { "Admin" },
-            PasswordHash = "admin" // replace with hashed version if needed
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin")
         };
 
         await users.InsertOneAsync(admin);
