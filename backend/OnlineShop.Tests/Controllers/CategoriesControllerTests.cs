@@ -21,7 +21,7 @@ public class CategoriesControllerTests
             httpContext.User = new ClaimsPrincipal(
                 new ClaimsIdentity(new[]
                 {
-                    new Claim("role", "Admin")
+                    new Claim(ClaimTypes.Role, "Admin")
                 }, "test")
             );
         }

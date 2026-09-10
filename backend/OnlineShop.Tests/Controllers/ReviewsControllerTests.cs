@@ -20,7 +20,7 @@ public class ReviewsControllerTests
         {
             var claims = new List<Claim> { new Claim("sub", userId) };
             if (isAdmin)
-                claims.Add(new Claim("role", "Admin"));
+                claims.Add(new Claim(ClaimTypes.Role, "Admin"));
 
             httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
         }

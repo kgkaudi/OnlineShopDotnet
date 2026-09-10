@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OnlineShop.Api.Services;
+using MongoDB.Bson;
 
 namespace OnlineShop.Api.Controllers;
 
@@ -14,6 +15,8 @@ public class UsersController : ControllerBase
     {
         _service = service;
     }
+
+    private string? GetUserId() => User.FindFirst("sub")?.Value;
 
     // ---------------------------------------------------------
     // GET ALL USERS (Admin only)
@@ -33,10 +36,16 @@ public class UsersController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
-        var currentUserId = User.FindFirst("sub")?.Value;
+        var currentUserId = GetUserId();
+        if (currentUserId == null || !ObjectId.TryParse(currentUserId, out _))
+            return Unauthorized("Invalid user token.");
+
+        if (!ObjectId.TryParse(id, out _))
+            return BadRequest("Invalid user id.");
+
         var isAdmin = User.IsInRole("Admin");
 
-        var user = await _service.GetByIdAsync(id, currentUserId!, isAdmin);
+        var user = await _service.GetByIdAsync(id, currentUserId, isAdmin);
 
         if (user == null)
             return Forbid();
@@ -51,8 +60,15 @@ public class UsersController : ControllerBase
     [HttpPost("{id}/roles")]
     public async Task<IActionResult> AddRole(string id, [FromBody] string role)
     {
+        if (!ObjectId.TryParse(id, out _))
+            return BadRequest("Invalid user id.");
+
+        if (string.IsNullOrWhiteSpace(role))
+            return BadRequest("Role is required.");
+
         var success = await _service.AddRoleAsync(id, role);
-        if (!success) return NotFound("User not found");
+        if (!success)
+            return NotFound("User not found.");
 
         return Ok(new { message = $"Role '{role}' added to user {id}" });
     }
@@ -64,8 +80,12 @@ public class UsersController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
+        if (!ObjectId.TryParse(id, out _))
+            return BadRequest("Invalid user id.");
+
         var success = await _service.DeleteAsync(id);
-        if (!success) return NotFound("User not found");
+        if (!success)
+            return NotFound("User not found.");
 
         return Ok(new { message = "User deleted successfully" });
     }
