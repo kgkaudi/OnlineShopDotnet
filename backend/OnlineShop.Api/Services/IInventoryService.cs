@@ -4,4 +4,5 @@ public interface IInventoryService
 {
     Task<bool> RestockAsync(string productId, int amount);
     Task<bool> ReduceStockAsync(string productId, int amount);
+    Task<bool> ProductExistsAsync(string productId);
 }

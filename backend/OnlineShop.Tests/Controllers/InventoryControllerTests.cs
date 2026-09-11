@@ -38,6 +38,16 @@ public class InventoryControllerTests
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task Restock_ShouldReturnUnauthorized_WhenNotAdmin()
+    {
+        var controller = CreateController(new FakeInventoryService(), isAdmin: false);
+
+        var result = await controller.Restock(ObjectId.GenerateNewId().ToString(), 5);
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
     public async Task Restock_ShouldReturnBadRequest_WhenProductIdInvalid()
     {
         var controller = CreateController(new FakeInventoryService(), isAdmin: true);
@@ -48,11 +58,41 @@ public class InventoryControllerTests
     }
 
     [Fact]
+    public async Task Restock_ShouldReturnBadRequest_WhenProductIdNull()
+    {
+        var controller = CreateController(new FakeInventoryService(), isAdmin: true);
+
+        var result = await controller.Restock(null!, 5);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Restock_ShouldReturnBadRequest_WhenProductIdEmpty()
+    {
+        var controller = CreateController(new FakeInventoryService(), isAdmin: true);
+
+        var result = await controller.Restock("", 5);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
     public async Task Restock_ShouldReturnBadRequest_WhenAmountZero()
     {
         var controller = CreateController(new FakeInventoryService(), isAdmin: true);
 
         var result = await controller.Restock(ObjectId.GenerateNewId().ToString(), 0);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Restock_ShouldReturnBadRequest_WhenAmountNegative()
+    {
+        var controller = CreateController(new FakeInventoryService(), isAdmin: true);
+
+        var result = await controller.Restock(ObjectId.GenerateNewId().ToString(), -10);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -82,9 +122,47 @@ public class InventoryControllerTests
         result.Should().BeOfType<OkObjectResult>();
     }
 
+    [Fact]
+    public async Task Restock_ShouldIncreaseStockCorrectly()
+    {
+        var service = new FakeInventoryService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddProduct(id, 5);
+
+        var controller = CreateController(service, isAdmin: true);
+
+        await controller.Restock(id, 10);
+
+        service.GetStock(id).Should().Be(15);
+    }
+
+    [Fact]
+    public async Task Restock_ShouldAllowLargeAmounts()
+    {
+        var service = new FakeInventoryService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddProduct(id, 5);
+
+        var controller = CreateController(service, isAdmin: true);
+
+        await controller.Restock(id, 100000);
+
+        service.GetStock(id).Should().Be(100005);
+    }
+
     // ---------------------------------------------------------
     // REDUCE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task Reduce_ShouldReturnUnauthorized_WhenNotAdmin()
+    {
+        var controller = CreateController(new FakeInventoryService(), isAdmin: false);
+
+        var result = await controller.Reduce(ObjectId.GenerateNewId().ToString(), 5);
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
 
     [Fact]
     public async Task Reduce_ShouldReturnBadRequest_WhenProductIdInvalid()
@@ -97,11 +175,41 @@ public class InventoryControllerTests
     }
 
     [Fact]
+    public async Task Reduce_ShouldReturnBadRequest_WhenProductIdNull()
+    {
+        var controller = CreateController(new FakeInventoryService(), isAdmin: true);
+
+        var result = await controller.Reduce(null!, 5);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Reduce_ShouldReturnBadRequest_WhenProductIdEmpty()
+    {
+        var controller = CreateController(new FakeInventoryService(), isAdmin: true);
+
+        var result = await controller.Reduce("", 5);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
     public async Task Reduce_ShouldReturnBadRequest_WhenAmountNegative()
     {
         var controller = CreateController(new FakeInventoryService(), isAdmin: true);
 
         var result = await controller.Reduce(ObjectId.GenerateNewId().ToString(), -1);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Reduce_ShouldReturnBadRequest_WhenAmountZero()
+    {
+        var controller = CreateController(new FakeInventoryService(), isAdmin: true);
+
+        var result = await controller.Reduce(ObjectId.GenerateNewId().ToString(), 0);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -121,6 +229,17 @@ public class InventoryControllerTests
     }
 
     [Fact]
+    public async Task Reduce_ShouldReturnNotFound_WhenProductMissing()
+    {
+        var controller = CreateController(new FakeInventoryService(), isAdmin: true);
+
+        var id = ObjectId.GenerateNewId().ToString();
+        var result = await controller.Reduce(id, 5);
+
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
     public async Task Reduce_ShouldReturnOk_WhenValid()
     {
         var service = new FakeInventoryService();
@@ -132,6 +251,49 @@ public class InventoryControllerTests
         var result = await controller.Reduce(id, 5);
 
         result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task Reduce_ShouldDecreaseStockCorrectly()
+    {
+        var service = new FakeInventoryService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddProduct(id, 10);
+
+        var controller = CreateController(service, isAdmin: true);
+
+        await controller.Reduce(id, 4);
+
+        service.GetStock(id).Should().Be(6);
+    }
+
+    [Fact]
+    public async Task Reduce_ShouldAllowExactStockReduction()
+    {
+        var service = new FakeInventoryService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddProduct(id, 10);
+
+        var controller = CreateController(service, isAdmin: true);
+
+        await controller.Reduce(id, 10);
+
+        service.GetStock(id).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Reduce_ShouldReturnBadRequest_WhenReducingTwiceBeyondStock()
+    {
+        var service = new FakeInventoryService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddProduct(id, 10);
+
+        var controller = CreateController(service, isAdmin: true);
+
+        await controller.Reduce(id, 5);
+        var result = await controller.Reduce(id, 10);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
     }
 }
 
@@ -146,6 +308,11 @@ public class FakeInventoryService : IInventoryService
     public void AddProduct(string id, int stock)
     {
         _stock[id] = stock;
+    }
+
+    public int GetStock(string id)
+    {
+        return _stock.ContainsKey(id) ? _stock[id] : -1;
     }
 
     public Task<bool> RestockAsync(string productId, int amount)
@@ -167,5 +334,17 @@ public class FakeInventoryService : IInventoryService
 
         _stock[productId] -= amount;
         return Task.FromResult(true);
+    }
+
+    // REQUIRED BY IInventoryService
+    public Task<bool> ProductExistsAsync(string productId)
+    {
+        // Tests expect:
+        // - NotFound when product does NOT exist
+        // - BadRequest when stock insufficient
+        // - Ok when valid
+        //
+        // So existence = key in dictionary
+        return Task.FromResult(_stock.ContainsKey(productId));
     }
 }

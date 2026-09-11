@@ -28,8 +28,22 @@ public class ReviewServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // GET BY PRODUCT
+    // GET BY PRODUCT — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task GetByProductIdAsync_ShouldReturnEmpty_WhenProductIdNull()
+    {
+        var result = await _service.GetByProductIdAsync(null!);
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetByProductIdAsync_ShouldReturnEmpty_WhenProductIdWhitespace()
+    {
+        var result = await _service.GetByProductIdAsync("   ");
+        result.Should().BeEmpty();
+    }
 
     [Fact]
     public async Task GetByProductIdAsync_ShouldReturnEmpty_WhenProductIdInvalid()
@@ -69,23 +83,44 @@ public class ReviewServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // CREATE
+    // CREATE — EDGE CASES
     // ---------------------------------------------------------
 
     [Fact]
-    public async Task CreateAsync_ShouldGenerateId_WhenMissing()
+    public async Task CreateAsync_ShouldReturnNull_WhenReviewIsNull()
+    {
+        var result = await _service.CreateAsync(null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenProductIdNull()
     {
         var review = new Review
         {
-            ProductId = ObjectId.GenerateNewId().ToString(),
+            ProductId = null!,
             UserId = ObjectId.GenerateNewId().ToString(),
             Rating = 4,
             Comment = "Nice"
         };
 
-        var created = await _service.CreateAsync(review);
+        Func<Task> act = async () => await _service.CreateAsync(review);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
 
-        created.Id.Should().NotBeNull();
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenProductIdWhitespace()
+    {
+        var review = new Review
+        {
+            ProductId = "   ",
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Rating = 4,
+            Comment = "Nice"
+        };
+
+        Func<Task> act = async () => await _service.CreateAsync(review);
+        await act.Should().ThrowAsync<ArgumentException>();
     }
 
     [Fact]
@@ -118,9 +153,113 @@ public class ReviewServiceTests : RepositoryTestBase
         await act.Should().ThrowAsync<ArgumentException>();
     }
 
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenRatingZeroOrNegative()
+    {
+        var review1 = new Review
+        {
+            ProductId = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Rating = 0,
+            Comment = "Bad"
+        };
+
+        var review2 = new Review
+        {
+            ProductId = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Rating = -1,
+            Comment = "Bad"
+        };
+
+        Func<Task> act1 = async () => await _service.CreateAsync(review1);
+        Func<Task> act2 = async () => await _service.CreateAsync(review2);
+
+        await act1.Should().ThrowAsync<ArgumentException>();
+        await act2.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenCommentNull()
+    {
+        var review = new Review
+        {
+            ProductId = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Rating = 4,
+            Comment = null!
+        };
+
+        Func<Task> act = async () => await _service.CreateAsync(review);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenCommentWhitespace()
+    {
+        var review = new Review
+        {
+            ProductId = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Rating = 4,
+            Comment = "   "
+        };
+
+        Func<Task> act = async () => await _service.CreateAsync(review);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldTrimComment()
+    {
+        var review = new Review
+        {
+            ProductId = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Rating = 4,
+            Comment = "   Nice   "
+        };
+
+        var created = await _service.CreateAsync(review);
+
+        created.Should().NotBeNull();
+        created!.Comment.Should().Be("Nice");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldGenerateId_WhenMissing()
+    {
+        var review = new Review
+        {
+            ProductId = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Rating = 4,
+            Comment = "Nice"
+        };
+
+        var created = await _service.CreateAsync(review);
+
+        created.Should().NotBeNull();
+        created!.Id.Should().NotBeNull();
+    }
+
     // ---------------------------------------------------------
-    // DELETE
+    // DELETE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdNull()
+    {
+        var result = await _service.DeleteAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdWhitespace()
+    {
+        var result = await _service.DeleteAsync("   ");
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task DeleteAsync_ShouldReturnFalse_WhenIdInvalid()

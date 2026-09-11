@@ -39,6 +39,16 @@ public class CouponsControllerTests
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task GetAll_ShouldReturnUnauthorized_WhenNotAdmin()
+    {
+        var controller = CreateController(new FakeCouponService(), isAdmin: false);
+
+        var result = await controller.GetAll();
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
     public async Task GetAll_ShouldReturnOk_WhenAdmin()
     {
         var controller = CreateController(new FakeCouponService(), isAdmin: true);
@@ -51,6 +61,31 @@ public class CouponsControllerTests
     // ---------------------------------------------------------
     // CREATE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task Create_ShouldReturnUnauthorized_WhenNotAdmin()
+    {
+        var controller = CreateController(new FakeCouponService(), isAdmin: false);
+
+        var result = await controller.Create(new Coupon
+        {
+            Code = "X",
+            Value = 10,
+            Expiration = DateTime.UtcNow.AddDays(1)
+        });
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task Create_ShouldReturnBadRequest_WhenCouponNull()
+    {
+        var controller = CreateController(new FakeCouponService(), isAdmin: true);
+
+        var result = await controller.Create(null!);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
 
     [Fact]
     public async Task Create_ShouldReturnBadRequest_WhenCodeMissing()
@@ -112,9 +147,37 @@ public class CouponsControllerTests
         result.Should().BeOfType<CreatedAtActionResult>();
     }
 
+    [Fact]
+    public async Task Create_ShouldReturnCreated_WhenDuplicateCode()
+    {
+        var service = new FakeCouponService();
+        service.AddCoupon(ObjectId.GenerateNewId().ToString(), "DUP", 10);
+
+        var controller = CreateController(service, isAdmin: true);
+
+        var result = await controller.Create(new Coupon
+        {
+            Code = "DUP",
+            Value = 5,
+            Expiration = DateTime.UtcNow.AddDays(2)
+        });
+
+        result.Should().BeOfType<CreatedAtActionResult>();
+    }
+
     // ---------------------------------------------------------
     // DELETE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task Delete_ShouldReturnUnauthorized_WhenNotAdmin()
+    {
+        var controller = CreateController(new FakeCouponService(), isAdmin: false);
+
+        var result = await controller.Delete(ObjectId.GenerateNewId().ToString());
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
 
     [Fact]
     public async Task Delete_ShouldReturnBadRequest_WhenIdInvalid()
@@ -151,6 +214,22 @@ public class CouponsControllerTests
         result.Should().BeOfType<NoContentResult>();
     }
 
+    [Fact]
+    public async Task Delete_ShouldReturnNotFound_WhenDeletingTwice()
+    {
+        var service = new FakeCouponService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddCoupon(id, "TEST", 10);
+
+        var controller = CreateController(service, isAdmin: true);
+
+        var first = await controller.Delete(id);
+        var second = await controller.Delete(id);
+
+        first.Should().BeOfType<NoContentResult>();
+        second.Should().BeOfType<NotFoundObjectResult>();
+    }
+
     // ---------------------------------------------------------
     // VALIDATE
     // ---------------------------------------------------------
@@ -166,11 +245,51 @@ public class CouponsControllerTests
     }
 
     [Fact]
+    public async Task Validate_ShouldReturnBadRequest_WhenCodeNull()
+    {
+        var controller = CreateController(new FakeCouponService());
+
+        var result = await controller.Validate(null!);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
     public async Task Validate_ShouldReturnBadRequest_WhenInvalid()
     {
         var controller = CreateController(new FakeCouponService());
 
         var result = await controller.Validate("INVALID");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Validate_ShouldReturnBadRequest_WhenInactive()
+    {
+        var service = new FakeCouponService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddCoupon(id, "SAVE10", 10);
+        service.SetInactive(id);
+
+        var controller = CreateController(service);
+
+        var result = await controller.Validate("SAVE10");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Validate_ShouldReturnBadRequest_WhenExpired()
+    {
+        var service = new FakeCouponService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddCoupon(id, "OLD", 10);
+        service.SetExpired(id);
+
+        var controller = CreateController(service);
+
+        var result = await controller.Validate("OLD");
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -184,6 +303,19 @@ public class CouponsControllerTests
         var controller = CreateController(service);
 
         var result = await controller.Validate("SAVE10");
+
+        result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task Validate_ShouldReturnOk_WhenCaseInsensitive()
+    {
+        var service = new FakeCouponService();
+        service.AddCoupon(ObjectId.GenerateNewId().ToString(), "SAVE10", 10);
+
+        var controller = CreateController(service);
+
+        var result = await controller.Validate("save10");
 
         result.Should().BeOfType<OkObjectResult>();
     }
@@ -209,11 +341,26 @@ public class FakeCouponService : ICouponService
         };
     }
 
+    public void SetInactive(string id)
+    {
+        if (_store.ContainsKey(id))
+            _store[id].Active = false;
+    }
+
+    public void SetExpired(string id)
+    {
+        if (_store.ContainsKey(id))
+            _store[id].Expiration = DateTime.UtcNow.AddDays(-1);
+    }
+
     public Task<List<Coupon>> GetAllAsync()
         => Task.FromResult(_store.Values.ToList());
 
     public Task<Coupon?> CreateAsync(Coupon coupon)
     {
+        if (coupon == null)
+            return Task.FromResult<Coupon?>(null);
+
         var id = ObjectId.GenerateNewId().ToString();
         coupon.Id = id;
         _store[id] = coupon;
@@ -224,5 +371,13 @@ public class FakeCouponService : ICouponService
         => Task.FromResult(_store.Remove(id));
 
     public Task<Coupon?> ValidateAsync(string code)
-        => Task.FromResult(_store.Values.FirstOrDefault(c => c.Code == code));
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return Task.FromResult<Coupon?>(null);
+
+        var match = _store.Values.FirstOrDefault(c =>
+            c.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult<Coupon?>(match);
+    }
 }

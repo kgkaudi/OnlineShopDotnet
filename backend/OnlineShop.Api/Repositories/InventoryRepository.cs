@@ -28,13 +28,23 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<bool> IncreaseStockAsync(string productId, int amount)
     {
+        if (string.IsNullOrWhiteSpace(productId))
+            return false;
+
         if (!ObjectId.TryParse(productId, out _))
+            return false;
+
+        if (amount <= 0)
+            return false;
+
+        var product = await _products.Find(p => p.Id == productId).FirstOrDefaultAsync();
+        if (product == null)
             return false;
 
         var update = Builders<Product>.Update.Inc(p => p.StockQuantity, amount);
         var result = await _products.UpdateOneAsync(p => p.Id == productId, update);
 
-        return result.MatchedCount > 0;
+        return result.ModifiedCount == 1;
     }
 
     // ---------------------------------------------------------
@@ -43,7 +53,13 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<bool> DecreaseStockAsync(string productId, int amount)
     {
+        if (string.IsNullOrWhiteSpace(productId))
+            return false;
+
         if (!ObjectId.TryParse(productId, out _))
+            return false;
+
+        if (amount <= 0)
             return false;
 
         var product = await _products.Find(p => p.Id == productId).FirstOrDefaultAsync();
@@ -56,6 +72,6 @@ public class InventoryRepository : IInventoryRepository
         var update = Builders<Product>.Update.Inc(p => p.StockQuantity, -amount);
         var result = await _products.UpdateOneAsync(p => p.Id == productId, update);
 
-        return result.MatchedCount > 0;
+        return result.ModifiedCount == 1;
     }
 }

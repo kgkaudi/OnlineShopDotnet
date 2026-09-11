@@ -17,18 +17,26 @@ public class ReviewsController : ControllerBase
         _service = service;
     }
 
-    private string? GetUserId() => User.FindFirst("sub")?.Value;
+    private string? GetUserId()
+    {
+        return User.FindFirst("sub")?.Value?.Trim();
+    }
+
+    private bool IsValidObjectId(string? id)
+    {
+        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+    }
 
     // ---------------------------------------------------------
     // GET reviews for a product (Public)
     // ---------------------------------------------------------
     [HttpGet("{productId}")]
-    public async Task<IActionResult> GetByProduct(string productId)
+    public async Task<IActionResult> GetByProduct(string? productId)
     {
-        if (!ObjectId.TryParse(productId, out _))
+        if (!IsValidObjectId(productId))
             return BadRequest("Invalid product id.");
 
-        var reviews = await _service.GetByProductIdAsync(productId);
+        var reviews = await _service.GetByProductIdAsync(productId!);
         return Ok(reviews);
     }
 
@@ -37,25 +45,35 @@ public class ReviewsController : ControllerBase
     // ---------------------------------------------------------
     [Authorize]
     [HttpPost]
-    public async Task<IActionResult> Create(Review review)
+    public async Task<IActionResult> Create(Review? review)
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!ObjectId.TryParse(review.ProductId, out _))
+        if (review == null)
+            return BadRequest("Invalid review data.");
+
+        if (!IsValidObjectId(review.ProductId))
             return BadRequest("Invalid product id.");
 
-        if (string.IsNullOrWhiteSpace(review.Comment))
+        var comment = review.Comment?.Trim();
+        if (string.IsNullOrWhiteSpace(comment))
             return BadRequest("Review comment is required.");
 
         if (review.Rating < 1 || review.Rating > 5)
             return BadRequest("Rating must be between 1 and 5.");
 
-        review.UserId = userId;
+        review.UserId = userId!;
+        review.Comment = comment;
         review.CreatedAt = DateTime.UtcNow;
 
         var created = await _service.CreateAsync(review);
+
+        // Service returns null → tests expect BadRequest
+        if (created == null)
+            return BadRequest("Invalid review data.");
+
         return CreatedAtAction(nameof(GetByProduct), new { productId = review.ProductId }, created);
     }
 
@@ -64,12 +82,12 @@ public class ReviewsController : ControllerBase
     // ---------------------------------------------------------
     [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(string id)
+    public async Task<IActionResult> Delete(string? id)
     {
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid review id.");
 
-        var success = await _service.DeleteAsync(id);
+        var success = await _service.DeleteAsync(id!);
         if (!success)
             return NotFound("Review not found.");
 

@@ -17,6 +17,16 @@ public class ProductsController : ControllerBase
         _service = service;
     }
 
+    private bool IsValidObjectId(string? id)
+    {
+        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+    }
+
+    private bool IsAdmin()
+    {
+        return User.IsInRole("Admin");
+    }
+
     // ---------------------------------------------------------
     // GET ALL PRODUCTS (Public)
     // ---------------------------------------------------------
@@ -31,12 +41,12 @@ public class ProductsController : ControllerBase
     // GET PRODUCT BY ID (Public)
     // ---------------------------------------------------------
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(string id)
+    public async Task<IActionResult> GetById(string? id)
     {
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid product id.");
 
-        var product = await _service.GetByIdAsync(id);
+        var product = await _service.GetByIdAsync(id!);
         if (product == null)
             return NotFound("Product not found.");
 
@@ -57,7 +67,7 @@ public class ProductsController : ControllerBase
         bool descending = false
     )
     {
-        if (categoryId != null && !ObjectId.TryParse(categoryId, out _))
+        if (categoryId != null && !IsValidObjectId(categoryId))
             return BadRequest("Invalid category id.");
 
         if (minPrice < 0 || maxPrice < 0)
@@ -79,39 +89,61 @@ public class ProductsController : ControllerBase
     // ---------------------------------------------------------
     // CREATE PRODUCT (Admin only)
     // ---------------------------------------------------------
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     [HttpPost]
-    public async Task<IActionResult> Create(Product product)
+    public async Task<IActionResult> Create(Product? product)
     {
-        if (string.IsNullOrWhiteSpace(product.Name))
+        if (!IsAdmin())
+            return Unauthorized("Admin only.");
+
+        if (product == null)
+            return BadRequest("Invalid product data.");
+
+        var name = product.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
             return BadRequest("Product name is required.");
 
         if (product.Price <= 0)
             return BadRequest("Price must be greater than zero.");
 
+        product.Name = name;
+
         var created = await _service.CreateAsync(product);
+
+        if (created == null)
+            return BadRequest("Invalid product data.");
+
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
     // ---------------------------------------------------------
     // UPDATE PRODUCT (Admin only)
     // ---------------------------------------------------------
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(string id, Product product)
+    public async Task<IActionResult> Update(string? id, Product? product)
     {
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsAdmin())
+            return Unauthorized("Admin only.");
+
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid product id.");
 
-        if (string.IsNullOrWhiteSpace(product.Name))
+        if (product == null)
+            return BadRequest("Invalid product data.");
+
+        var name = product.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
             return BadRequest("Product name is required.");
 
         if (product.Price <= 0)
             return BadRequest("Price must be greater than zero.");
 
-        product.Id = id;
+        product.Id = id!;
+        product.Name = name;
 
         var success = await _service.UpdateAsync(product);
+
         if (!success)
             return NotFound("Product not found.");
 
@@ -121,14 +153,18 @@ public class ProductsController : ControllerBase
     // ---------------------------------------------------------
     // DELETE PRODUCT (Admin only)
     // ---------------------------------------------------------
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(string id)
+    public async Task<IActionResult> Delete(string? id)
     {
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsAdmin())
+            return Unauthorized("Admin only.");
+
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid product id.");
 
-        var success = await _service.DeleteAsync(id);
+        var success = await _service.DeleteAsync(id!);
+
         if (!success)
             return NotFound("Product not found.");
 

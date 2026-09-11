@@ -18,7 +18,12 @@ public class CartController : ControllerBase
 
     private string? GetUserId()
     {
-        return User.FindFirst("sub")?.Value;
+        return User.FindFirst("sub")?.Value?.Trim();
+    }
+
+    private bool IsValidObjectId(string? id)
+    {
+        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
     }
 
     // ---------------------------------------------------------
@@ -30,10 +35,11 @@ public class CartController : ControllerBase
     public async Task<IActionResult> Get()
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token");
 
-        var cart = await _service.GetOrCreateAsync(userId);
+        var cart = await _service.GetOrCreateAsync(userId!);
         return Ok(cart);
     }
 
@@ -43,19 +49,20 @@ public class CartController : ControllerBase
 
     [Authorize]
     [HttpPost("add")]
-    public async Task<IActionResult> Add(string productId, int quantity)
+    public async Task<IActionResult> Add(string? productId, int quantity)
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token");
 
-        if (!ObjectId.TryParse(productId, out _))
+        if (!IsValidObjectId(productId))
             return BadRequest("Invalid productId");
 
         if (quantity <= 0)
             return BadRequest("Quantity must be greater than zero");
 
-        var cart = await _service.AddItemAsync(userId, productId, quantity);
+        var cart = await _service.AddItemAsync(userId!, productId!, quantity);
         return Ok(cart);
     }
 
@@ -65,19 +72,20 @@ public class CartController : ControllerBase
 
     [Authorize]
     [HttpPut("update")]
-    public async Task<IActionResult> Update(string productId, int quantity)
+    public async Task<IActionResult> Update(string? productId, int quantity)
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token");
 
-        if (!ObjectId.TryParse(productId, out _))
+        if (!IsValidObjectId(productId))
             return BadRequest("Invalid productId");
 
         if (quantity < 0)
             return BadRequest("Quantity cannot be negative");
 
-        var cart = await _service.UpdateQuantityAsync(userId, productId, quantity);
+        var cart = await _service.UpdateQuantityAsync(userId!, productId!, quantity);
         return Ok(cart);
     }
 
@@ -87,16 +95,17 @@ public class CartController : ControllerBase
 
     [Authorize]
     [HttpDelete("remove")]
-    public async Task<IActionResult> Remove(string productId)
+    public async Task<IActionResult> Remove(string? productId)
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token");
 
-        if (!ObjectId.TryParse(productId, out _))
+        if (!IsValidObjectId(productId))
             return BadRequest("Invalid productId");
 
-        var cart = await _service.RemoveItemAsync(userId, productId);
+        var cart = await _service.RemoveItemAsync(userId!, productId!);
         return Ok(cart);
     }
 
@@ -109,10 +118,11 @@ public class CartController : ControllerBase
     public async Task<IActionResult> Clear()
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token");
 
-        await _service.ClearAsync(userId);
+        await _service.ClearAsync(userId!);
         return Ok(new { message = "Cart cleared" });
     }
 }

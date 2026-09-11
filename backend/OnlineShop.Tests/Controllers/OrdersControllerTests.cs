@@ -58,6 +58,16 @@ public class OrdersControllerTests
         result.Should().BeOfType<OkObjectResult>();
     }
 
+    [Fact]
+    public async Task GetAll_ShouldReturnOk_WhenAdmin()
+    {
+        var controller = CreateController(new FakeOrderService(), ObjectId.GenerateNewId().ToString(), isAdmin: true);
+
+        var result = await controller.GetAll();
+
+        result.Should().BeOfType<OkObjectResult>();
+    }
+
     // ---------------------------------------------------------
     // GET BY ID
     // ---------------------------------------------------------
@@ -71,6 +81,17 @@ public class OrdersControllerTests
         var result = await controller.GetById("invalid-id");
 
         result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetById_ShouldReturnNotFound_WhenOrderMissing()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var controller = CreateController(new FakeOrderService(), userId);
+
+        var result = await controller.GetById(ObjectId.GenerateNewId().ToString());
+
+        result.Should().BeOfType<NotFoundObjectResult>();
     }
 
     [Fact]
@@ -102,9 +123,33 @@ public class OrdersControllerTests
         result.Should().BeOfType<OkObjectResult>();
     }
 
+    [Fact]
+    public async Task GetById_ShouldReturnOk_WhenAdmin()
+    {
+        var service = new FakeOrderService();
+        var orderId = ObjectId.GenerateNewId().ToString();
+        service.AddOrder(orderId, "owner123");
+
+        var controller = CreateController(service, ObjectId.GenerateNewId().ToString(), isAdmin: true);
+
+        var result = await controller.GetById(orderId);
+
+        result.Should().BeOfType<OkObjectResult>();
+    }
+
     // ---------------------------------------------------------
     // CREATE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task Create_ShouldReturnUnauthorized_WhenUserIdMissing()
+    {
+        var controller = CreateController(new FakeOrderService(), null);
+
+        var result = await controller.Create(new Order());
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
 
     [Fact]
     public async Task Create_ShouldReturnBadRequest_WhenItemsMissing()
@@ -113,6 +158,17 @@ public class OrdersControllerTests
         var controller = CreateController(new FakeOrderService(), userId);
 
         var result = await controller.Create(new Order { Items = new List<OrderItem>() });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Create_ShouldReturnBadRequest_WhenOrderNull()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var controller = CreateController(new FakeOrderService(), userId);
+
+        var result = await controller.Create(null!);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -152,6 +208,28 @@ public class OrdersControllerTests
     }
 
     [Fact]
+    public async Task Update_ShouldReturnBadRequest_WhenOrderNull()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var controller = CreateController(new FakeOrderService(), userId);
+
+        var result = await controller.Update(ObjectId.GenerateNewId().ToString(), null!);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Update_ShouldReturnNotFound_WhenOrderMissing()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var controller = CreateController(new FakeOrderService(), userId);
+
+        var result = await controller.Update(ObjectId.GenerateNewId().ToString(), new Order());
+
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
     public async Task Update_ShouldReturnForbid_WhenUserNotOwner()
     {
         var service = new FakeOrderService();
@@ -180,6 +258,23 @@ public class OrdersControllerTests
         result.Should().BeOfType<OkObjectResult>();
     }
 
+    [Fact]
+    public async Task Update_ShouldReturnNotFound_WhenUpdatingTwice()
+    {
+        var service = new FakeOrderService();
+        var userId = ObjectId.GenerateNewId().ToString();
+        var orderId = ObjectId.GenerateNewId().ToString();
+        service.AddOrder(orderId, userId);
+
+        var controller = CreateController(service, userId);
+
+        var first = await controller.Update(orderId, new Order());
+        var second = await controller.Update(orderId, new Order());
+
+        first.Should().BeOfType<OkObjectResult>();
+        second.Should().BeOfType<NotFoundObjectResult>();
+    }
+
     // ---------------------------------------------------------
     // DELETE
     // ---------------------------------------------------------
@@ -192,6 +287,17 @@ public class OrdersControllerTests
         var result = await controller.Delete("invalid-id");
 
         result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Delete_ShouldReturnNotFound_WhenOrderMissing()
+    {
+        var controller = CreateController(new FakeOrderService(), ObjectId.GenerateNewId().ToString());
+
+        var id = ObjectId.GenerateNewId().ToString();
+        var result = await controller.Delete(id);
+
+        result.Should().BeOfType<NotFoundObjectResult>();
     }
 
     [Fact]
@@ -222,6 +328,23 @@ public class OrdersControllerTests
 
         result.Should().BeOfType<OkObjectResult>();
     }
+
+    [Fact]
+    public async Task Delete_ShouldReturnNotFound_WhenDeletingTwice()
+    {
+        var service = new FakeOrderService();
+        var userId = ObjectId.GenerateNewId().ToString();
+        var orderId = ObjectId.GenerateNewId().ToString();
+        service.AddOrder(orderId, userId);
+
+        var controller = CreateController(service, userId);
+
+        var first = await controller.Delete(orderId);
+        var second = await controller.Delete(orderId);
+
+        first.Should().BeOfType<OkObjectResult>();
+        second.Should().BeOfType<NotFoundObjectResult>();
+    }
 }
 
 // ---------------------------------------------------------
@@ -245,6 +368,11 @@ public class FakeOrderService : IOrderService
         };
     }
 
+    public bool Exists(string id)
+    {
+        return _orders.ContainsKey(id);
+    }
+
     public Task<List<Order>> GetAllAsync(bool isAdmin, string userId)
     {
         if (isAdmin)
@@ -266,15 +394,21 @@ public class FakeOrderService : IOrderService
         return Task.FromResult<Order?>(null);
     }
 
-    public Task<Order> CreateAsync(Order order)
+    public Task<Order?> CreateAsync(Order order)
     {
+        if (order == null)
+            return Task.FromResult<Order?>(null);
+
         order.Id = ObjectId.GenerateNewId().ToString();
         _orders[order.Id] = order;
-        return Task.FromResult(order);
+        return Task.FromResult<Order?>(order);
     }
 
     public Task<bool> UpdateAsync(Order order, bool isAdmin, string userId)
     {
+        if (order == null || string.IsNullOrWhiteSpace(order.Id))
+            return Task.FromResult(false);
+
         if (!_orders.ContainsKey(order.Id))
             return Task.FromResult(false);
 

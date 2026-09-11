@@ -29,6 +29,20 @@ public class InventoryRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task IncreaseStockAsync_ShouldReturnFalse_WhenIdIsNull()
+    {
+        var result = await _repo.IncreaseStockAsync(null!, 5);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task IncreaseStockAsync_ShouldReturnFalse_WhenIdIsWhitespace()
+    {
+        var result = await _repo.IncreaseStockAsync("   ", 5);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task IncreaseStockAsync_ShouldReturnFalse_WhenIdIsInvalid()
     {
         var result = await _repo.IncreaseStockAsync("invalid-id", 5);
@@ -40,6 +54,26 @@ public class InventoryRepositoryTests : RepositoryTestBase
     {
         var id = ObjectId.GenerateNewId().ToString();
         var result = await _repo.IncreaseStockAsync(id, 5);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task IncreaseStockAsync_ShouldReturnFalse_WhenAmountIsZero()
+    {
+        var product = new Product { Name = "Test", Price = 10, StockQuantity = 5 };
+        await _products.InsertOneAsync(product);
+
+        var result = await _repo.IncreaseStockAsync(product.Id, 0);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task IncreaseStockAsync_ShouldReturnFalse_WhenAmountIsNegative()
+    {
+        var product = new Product { Name = "Test", Price = 10, StockQuantity = 5 };
+        await _products.InsertOneAsync(product);
+
+        var result = await _repo.IncreaseStockAsync(product.Id, -3);
         result.Should().BeFalse();
     }
 
@@ -62,9 +96,51 @@ public class InventoryRepositoryTests : RepositoryTestBase
         fetched!.StockQuantity.Should().Be(8);
     }
 
+    [Fact]
+    public async Task IncreaseStockAsync_ShouldIncreaseStock_WhenStockIsZero()
+    {
+        var product = new Product { Name = "Zero", Price = 10, StockQuantity = 0 };
+        await _products.InsertOneAsync(product);
+
+        var updated = await _repo.IncreaseStockAsync(product.Id, 10);
+        updated.Should().BeTrue();
+
+        var fetched = await _products.Find(p => p.Id == product.Id).FirstOrDefaultAsync();
+        fetched!.StockQuantity.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task IncreaseStockAsync_ShouldNotAffectOtherProducts()
+    {
+        var p1 = new Product { Name = "A", Price = 10, StockQuantity = 5 };
+        var p2 = new Product { Name = "B", Price = 10, StockQuantity = 7 };
+
+        await _products.InsertOneAsync(p1);
+        await _products.InsertOneAsync(p2);
+
+        await _repo.IncreaseStockAsync(p1.Id, 3);
+
+        var fetched2 = await _products.Find(p => p.Id == p2.Id).FirstOrDefaultAsync();
+        fetched2!.StockQuantity.Should().Be(7);
+    }
+
     // ---------------------------------------------------------
     // DECREASE STOCK
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task DecreaseStockAsync_ShouldReturnFalse_WhenIdIsNull()
+    {
+        var result = await _repo.DecreaseStockAsync(null!, 5);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DecreaseStockAsync_ShouldReturnFalse_WhenIdIsWhitespace()
+    {
+        var result = await _repo.DecreaseStockAsync("   ", 5);
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task DecreaseStockAsync_ShouldReturnFalse_WhenIdIsInvalid()
@@ -78,6 +154,26 @@ public class InventoryRepositoryTests : RepositoryTestBase
     {
         var id = ObjectId.GenerateNewId().ToString();
         var result = await _repo.DecreaseStockAsync(id, 5);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DecreaseStockAsync_ShouldReturnFalse_WhenAmountIsZero()
+    {
+        var product = new Product { Name = "Test", Price = 10, StockQuantity = 5 };
+        await _products.InsertOneAsync(product);
+
+        var result = await _repo.DecreaseStockAsync(product.Id, 0);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DecreaseStockAsync_ShouldReturnFalse_WhenAmountIsNegative()
+    {
+        var product = new Product { Name = "Test", Price = 10, StockQuantity = 5 };
+        await _products.InsertOneAsync(product);
+
+        var result = await _repo.DecreaseStockAsync(product.Id, -3);
         result.Should().BeFalse();
     }
 
@@ -133,5 +229,20 @@ public class InventoryRepositoryTests : RepositoryTestBase
 
         var fetched = await _products.Find(p => p.Id == product.Id).FirstOrDefaultAsync();
         fetched!.StockQuantity.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task DecreaseStockAsync_ShouldNotAffectOtherProducts()
+    {
+        var p1 = new Product { Name = "A", Price = 10, StockQuantity = 10 };
+        var p2 = new Product { Name = "B", Price = 10, StockQuantity = 7 };
+
+        await _products.InsertOneAsync(p1);
+        await _products.InsertOneAsync(p2);
+
+        await _repo.DecreaseStockAsync(p1.Id, 4);
+
+        var fetched2 = await _products.Find(p => p.Id == p2.Id).FirstOrDefaultAsync();
+        fetched2!.StockQuantity.Should().Be(7);
     }
 }

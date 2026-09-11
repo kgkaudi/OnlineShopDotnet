@@ -57,6 +57,19 @@ public class ReviewsControllerTests
         result.Should().BeOfType<OkObjectResult>();
     }
 
+    [Fact]
+    public async Task GetByProduct_ShouldReturnEmptyList_WhenNoReviews()
+    {
+        var controller = CreateController(new FakeReviewService());
+
+        var productId = ObjectId.GenerateNewId().ToString();
+        var result = await controller.GetByProduct(productId);
+
+        result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeAssignableTo<List<Review>>()
+            .Subject.Should().BeEmpty();
+    }
+
     // ---------------------------------------------------------
     // CREATE
     // ---------------------------------------------------------
@@ -130,6 +143,16 @@ public class ReviewsControllerTests
     }
 
     [Fact]
+    public async Task Create_ShouldReturnBadRequest_WhenReviewIsNull()
+    {
+        var controller = CreateController(new FakeReviewService(), ObjectId.GenerateNewId().ToString());
+
+        var result = await controller.Create(null!);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
     public async Task Create_ShouldReturnCreated_WhenValid()
     {
         var controller = CreateController(new FakeReviewService(), ObjectId.GenerateNewId().ToString());
@@ -184,6 +207,22 @@ public class ReviewsControllerTests
 
         result.Should().BeOfType<NoContentResult>();
     }
+
+    [Fact]
+    public async Task Delete_ShouldReturnNotFound_WhenDeletingTwice()
+    {
+        var service = new FakeReviewService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddReview(id);
+
+        var controller = CreateController(service, ObjectId.GenerateNewId().ToString(), isAdmin: true);
+
+        var first = await controller.Delete(id);
+        var second = await controller.Delete(id);
+
+        first.Should().BeOfType<NoContentResult>();
+        second.Should().BeOfType<NotFoundObjectResult>();
+    }
 }
 
 // ---------------------------------------------------------
@@ -210,11 +249,14 @@ public class FakeReviewService : IReviewService
     public Task<List<Review>> GetByProductIdAsync(string productId)
         => Task.FromResult(_store.Values.Where(r => r.ProductId == productId).ToList());
 
-    public Task<Review> CreateAsync(Review review)
+    public Task<Review?> CreateAsync(Review review)
     {
+        if (review == null)
+            return Task.FromResult<Review?>(null);
+
         review.Id = ObjectId.GenerateNewId().ToString();
         _store[review.Id] = review;
-        return Task.FromResult(review);
+        return Task.FromResult<Review?>(review);
     }
 
     public Task<bool> DeleteAsync(string id)

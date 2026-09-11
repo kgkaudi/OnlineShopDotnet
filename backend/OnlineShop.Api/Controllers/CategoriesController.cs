@@ -17,10 +17,19 @@ public class CategoriesController : ControllerBase
         _service = service;
     }
 
+    private bool IsValidObjectId(string? id)
+    {
+        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+    }
+
+    private bool IsAdmin()
+    {
+        return User.IsInRole("Admin");
+    }
+
     // ---------------------------------------------------------
     // GET ALL
     // ---------------------------------------------------------
-
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -31,14 +40,13 @@ public class CategoriesController : ControllerBase
     // ---------------------------------------------------------
     // GET BY ID
     // ---------------------------------------------------------
-
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(string id)
+    public async Task<IActionResult> GetById(string? id)
     {
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid category id.");
 
-        var category = await _service.GetByIdAsync(id);
+        var category = await _service.GetByIdAsync(id!);
         if (category == null)
             return NotFound("Category not found.");
 
@@ -46,17 +54,23 @@ public class CategoriesController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // CREATE
+    // CREATE (Admin)
     // ---------------------------------------------------------
-
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     [HttpPost]
-    public async Task<IActionResult> Create(Category category)
+    public async Task<IActionResult> Create(Category? category)
     {
-        if (string.IsNullOrWhiteSpace(category.Name))
+        if (!IsAdmin())
+            return Unauthorized("Admin only.");
+
+        if (category == null)
+            return BadRequest("Invalid category data.");
+
+        var name = category.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
             return BadRequest("Category name is required.");
 
-        var created = await _service.CreateAsync(category.Name);
+        var created = await _service.CreateAsync(name);
         if (created == null)
             return BadRequest("Invalid category name.");
 
@@ -64,20 +78,27 @@ public class CategoriesController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // UPDATE
+    // UPDATE (Admin)
     // ---------------------------------------------------------
-
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(string id, Category category)
+    public async Task<IActionResult> Update(string? id, Category? category)
     {
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsAdmin())
+            return Unauthorized("Admin only.");
+
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid category id.");
 
-        if (string.IsNullOrWhiteSpace(category.Name))
+        if (category == null)
+            return BadRequest("Invalid category data.");
+
+        var name = category.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
             return BadRequest("Category name is required.");
 
-        var updated = await _service.UpdateAsync(id, category.Name);
+        var updated = await _service.UpdateAsync(id!, name);
+
         if (!updated)
             return NotFound("Category not found.");
 
@@ -85,17 +106,20 @@ public class CategoriesController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // DELETE
+    // DELETE (Admin)
     // ---------------------------------------------------------
-
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(string id)
+    public async Task<IActionResult> Delete(string? id)
     {
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsAdmin())
+            return Unauthorized("Admin only.");
+
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid category id.");
 
-        var deleted = await _service.DeleteAsync(id);
+        var deleted = await _service.DeleteAsync(id!);
+
         if (!deleted)
             return NotFound("Category not found.");
 

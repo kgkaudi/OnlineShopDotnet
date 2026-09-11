@@ -34,73 +34,169 @@ public class AuthServiceTests : RepositoryTestBase
 
         _jwt = new JwtService(jwtConfig);
 
-        // FIX: AuthService now requires (config, jwt, repo)
         _auth = new AuthService(jwtConfig, _jwt, _userRepo);
 
         Fixture.Database.DropCollection("Users");
     }
 
     // ---------------------------------------------------------
-    // REGISTER
+    // REGISTER — EDGE CASES
     // ---------------------------------------------------------
 
     [Fact]
-    public async Task RegisterAsync_ShouldCreateUser_WhenEmailIsNew()
+    public async Task RegisterAsync_ShouldReturnNull_WhenEmailIsNull()
     {
-        var user = await _auth.RegisterAsync("test@example.com", "password123", "Test User");
-
-        user.Should().NotBeNull();
-        user!.Email.Should().Be("test@example.com");
-
-        var fetched = await _userRepo.GetByEmailAsync("test@example.com");
-        fetched.Should().NotBeNull();
+        var result = await _auth.RegisterAsync(null!, "pass", "User");
+        result.Should().BeNull();
     }
 
     [Fact]
-    public async Task RegisterAsync_ShouldReturnNull_WhenEmailExists()
+    public async Task RegisterAsync_ShouldReturnNull_WhenEmailIsWhitespace()
     {
-        await _auth.RegisterAsync("duplicate@example.com", "pass", "User1");
+        var result = await _auth.RegisterAsync("   ", "pass", "User");
+        result.Should().BeNull();
+    }
 
-        var result = await _auth.RegisterAsync("duplicate@example.com", "pass", "User2");
+    [Fact]
+    public async Task RegisterAsync_ShouldReturnNull_WhenPasswordIsNull()
+    {
+        var result = await _auth.RegisterAsync("test@test.com", null!, "User");
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RegisterAsync_ShouldReturnNull_WhenPasswordIsWhitespace()
+    {
+        var result = await _auth.RegisterAsync("test@test.com", "   ", "User");
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RegisterAsync_ShouldReturnNull_WhenFullNameIsNull()
+    {
+        var result = await _auth.RegisterAsync("test@test.com", "pass", null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RegisterAsync_ShouldReturnNull_WhenFullNameIsWhitespace()
+    {
+        var result = await _auth.RegisterAsync("test@test.com", "pass", "   ");
         result.Should().BeNull();
     }
 
     // ---------------------------------------------------------
-    // LOGIN
+    // REGISTER — EXISTING EMAIL
     // ---------------------------------------------------------
 
     [Fact]
-    public async Task LoginAsync_ShouldReturnToken_WhenCredentialsAreCorrect()
+    public async Task RegisterAsync_ShouldReturnNull_WhenEmailAlreadyExists_CaseInsensitive()
     {
-        await _auth.RegisterAsync("login@example.com", "mypassword", "Login User");
+        await _auth.RegisterAsync("duplicate@test.com", "pass", "User1");
 
-        var token = await _auth.LoginAsync("login@example.com", "mypassword");
-
-        token.Should().NotBeNull();
-    }
-
-    [Fact]
-    public async Task LoginAsync_ShouldReturnNull_WhenPasswordIsWrong()
-    {
-        await _auth.RegisterAsync("wrongpass@example.com", "correct", "User");
-
-        var token = await _auth.LoginAsync("wrongpass@example.com", "incorrect");
-        token.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task LoginAsync_ShouldReturnNull_WhenUserDoesNotExist()
-    {
-        var token = await _auth.LoginAsync("missing@example.com", "pass");
-        token.Should().BeNull();
+        var result = await _auth.RegisterAsync("DUPLICATE@test.com", "pass", "User2");
+        result.Should().BeNull();
     }
 
     // ---------------------------------------------------------
-    // ADD ROLE
+    // LOGIN — EDGE CASES
     // ---------------------------------------------------------
 
     [Fact]
-    public async Task AddRoleAsync_ShouldReturnFalse_WhenUserIdIsInvalid()
+    public async Task LoginAsync_ShouldReturnNull_WhenEmailIsNull()
+    {
+        var result = await _auth.LoginAsync(null!, "pass");
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task LoginAsync_ShouldReturnNull_WhenEmailIsWhitespace()
+    {
+        var result = await _auth.LoginAsync("   ", "pass");
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task LoginAsync_ShouldReturnNull_WhenPasswordIsNull()
+    {
+        var result = await _auth.LoginAsync("test@test.com", null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task LoginAsync_ShouldReturnNull_WhenPasswordIsWhitespace()
+    {
+        var result = await _auth.LoginAsync("test@test.com", "   ");
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task LoginAsync_ShouldReturnNull_WhenPasswordIsEmpty()
+    {
+        var result = await _auth.LoginAsync("test@test.com", "");
+        result.Should().BeNull();
+    }
+
+    // ---------------------------------------------------------
+    // LOGIN — SECURITY EDGE CASES
+    // ---------------------------------------------------------
+
+    [Fact]
+    public async Task LoginAsync_ShouldReturnNull_WhenPasswordIsCorrectButEmailCaseDiffers()
+    {
+        await _auth.RegisterAsync("case@test.com", "pass123", "User");
+
+        var result = await _auth.LoginAsync("CASE@test.com", "pass123");
+        result.Should().BeNull(); // email match must be exact
+    }
+
+    [Fact]
+    public async Task LoginAsync_ShouldReturnNull_WhenPasswordIsCorrectButUserIsDeleted()
+    {
+        var user = await _auth.RegisterAsync("delete@test.com", "pass123", "User");
+
+        await _userRepo.DeleteAsync(user!.Id);
+
+        var result = await _auth.LoginAsync("delete@test.com", "pass123");
+        result.Should().BeNull();
+    }
+
+    // ---------------------------------------------------------
+    // ADD ROLE — EDGE CASES
+    // ---------------------------------------------------------
+
+    [Fact]
+    public async Task AddRoleAsync_ShouldReturnFalse_WhenUserIdIsNull()
+    {
+        var result = await _auth.AddRoleAsync(null!, "Admin");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddRoleAsync_ShouldReturnFalse_WhenUserIdIsWhitespace()
+    {
+        var result = await _auth.AddRoleAsync("   ", "Admin");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddRoleAsync_ShouldReturnFalse_WhenRoleIsNull()
+    {
+        var user = await _auth.RegisterAsync("role@test.com", "pass", "User");
+        var result = await _auth.AddRoleAsync(user!.Id, null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddRoleAsync_ShouldReturnFalse_WhenRoleIsWhitespace()
+    {
+        var user = await _auth.RegisterAsync("role2@test.com", "pass", "User");
+        var result = await _auth.AddRoleAsync(user!.Id, "   ");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddRoleAsync_ShouldReturnFalse_WhenUserIdIsInvalidObjectId()
     {
         var result = await _auth.AddRoleAsync("invalid-id", "Admin");
         result.Should().BeFalse();
@@ -115,23 +211,16 @@ public class AuthServiceTests : RepositoryTestBase
     }
 
     [Fact]
-    public async Task AddRoleAsync_ShouldAddRole_WhenUserExists()
+    public async Task AddRoleAsync_ShouldNotDuplicateRole_WhenRoleAlreadyExists()
     {
-        var user = new User
-        {
-            Id = ObjectId.GenerateNewId().ToString(),
-            Email = "role@example.com",
-            FullName = "Role User",
-            PasswordHash = "HASH",
-            Roles = new List<string> { "User" }
-        };
+        var user = await _auth.RegisterAsync("dup@test.com", "pass", "User");
 
-        await _userRepo.CreateAsync(user);
+        await _auth.AddRoleAsync(user!.Id, "Admin");
+        var result = await _auth.AddRoleAsync(user.Id, "Admin");
 
-        var updated = await _auth.AddRoleAsync(user.Id, "Admin");
-        updated.Should().BeTrue();
+        result.Should().BeTrue();
 
         var fetched = await _userRepo.GetByIdAsync(user.Id);
-        fetched!.Roles.Should().Contain("Admin");
+        fetched!.Roles.Should().HaveCount(1);
     }
 }

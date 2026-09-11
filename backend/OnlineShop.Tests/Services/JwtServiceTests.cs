@@ -6,10 +6,9 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Xunit;
 
-
 public class JwtServiceTests
 {
-    private JwtService CreateService(Dictionary<string, string> settings)
+    private JwtService CreateService(Dictionary<string, string?> settings)
     {
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(settings)
@@ -18,7 +17,7 @@ public class JwtServiceTests
         return new JwtService(config);
     }
 
-    private Dictionary<string, string> ValidSettings => new()
+    private Dictionary<string, string?> ValidSettings => new()
     {
         ["Jwt:Key"] = "THIS_IS_A_TEST_KEY_THAT_IS_LONG_ENOUGH_123456",
         ["Jwt:Issuer"] = "TestIssuer",
@@ -27,7 +26,7 @@ public class JwtServiceTests
     };
 
     // ---------------------------------------------------------
-    // TOKEN GENERATION
+    // TOKEN GENERATION — BASE CASE
     // ---------------------------------------------------------
 
     [Fact]
@@ -89,7 +88,6 @@ public class JwtServiceTests
         var service = CreateService(ValidSettings);
 
         var expiration = service.GetExpiration();
-
         var expected = DateTime.UtcNow.AddMinutes(30);
 
         expiration.Should().BeCloseTo(expected, TimeSpan.FromSeconds(2));
@@ -102,7 +100,7 @@ public class JwtServiceTests
     [Fact]
     public void GenerateToken_ShouldThrow_WhenKeyMissing()
     {
-        var settings = new Dictionary<string, string>(ValidSettings);
+        var settings = new Dictionary<string, string?>(ValidSettings);
         settings.Remove("Jwt:Key");
 
         var service = CreateService(settings);
@@ -118,7 +116,7 @@ public class JwtServiceTests
     [Fact]
     public void GenerateToken_ShouldThrow_WhenExpiresInvalid()
     {
-        var settings = new Dictionary<string, string>(ValidSettings)
+        var settings = new Dictionary<string, string?>(ValidSettings)
         {
             ["Jwt:ExpiresInMinutes"] = "not-a-number"
         };
@@ -131,5 +129,136 @@ public class JwtServiceTests
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*valid integer*");
+    }
+
+    // ---------------------------------------------------------
+    // ADDITIONAL EDGE CASES
+    // ---------------------------------------------------------
+
+    [Fact]
+    public void GenerateToken_ShouldThrow_WhenIssuerMissing()
+    {
+        var settings = new Dictionary<string, string?>(ValidSettings);
+        settings.Remove("Jwt:Issuer");
+
+        var service = CreateService(settings);
+
+        var user = new User { Id = "1", Email = "a@b.com", Roles = new List<string>() };
+
+        Action act = () => service.GenerateToken(user);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Jwt:Issuer*");
+    }
+
+    [Fact]
+    public void GenerateToken_ShouldThrow_WhenAudienceMissing()
+    {
+        var settings = new Dictionary<string, string?>(ValidSettings);
+        settings.Remove("Jwt:Audience");
+
+        var service = CreateService(settings);
+
+        var user = new User { Id = "1", Email = "a@b.com", Roles = new List<string>() };
+
+        Action act = () => service.GenerateToken(user);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Jwt:Audience*");
+    }
+
+    [Fact]
+    public void GenerateToken_ShouldThrow_WhenKeyTooShort()
+    {
+        var settings = new Dictionary<string, string?>(ValidSettings)
+        {
+            ["Jwt:Key"] = "short"
+        };
+
+        var service = CreateService(settings);
+
+        var user = new User { Id = "1", Email = "a@b.com", Roles = new List<string>() };
+
+        Action act = () => service.GenerateToken(user);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void GenerateToken_ShouldThrow_WhenUserIsNull()
+    {
+        var service = CreateService(ValidSettings);
+
+        Action act = () => service.GenerateToken(null!);
+
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void GenerateToken_ShouldThrow_WhenUserIdMissing()
+    {
+        var service = CreateService(ValidSettings);
+
+        var user = new User { Email = "a@b.com", Roles = new List<string>() };
+
+        Action act = () => service.GenerateToken(user);
+
+        act.Should().Throw<ArgumentNullException>()
+            .WithMessage("*Id*");
+    }
+
+    [Fact]
+    public void GenerateToken_ShouldThrow_WhenEmailMissing()
+    {
+        var service = CreateService(ValidSettings);
+
+        var user = new User { Id = "123", Roles = new List<string>() };
+
+        Action act = () => service.GenerateToken(user);
+
+        act.Should().Throw<ArgumentNullException>()
+            .WithMessage("*Email*");
+    }
+
+    [Fact]
+    public void GenerateToken_ShouldHandle_EmptyRolesList()
+    {
+        var service = CreateService(ValidSettings);
+
+        var user = new User
+        {
+            Id = "123",
+            Email = "test@example.com",
+            Roles = new List<string>()
+        };
+
+        var token = service.GenerateToken(user);
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(token);
+
+        jwt.Claims.Should().NotContain(c => c.Type == ClaimTypes.Role);
+    }
+
+    [Fact]
+    public void GenerateToken_ShouldProduceValidJwtStructure()
+    {
+        var service = CreateService(ValidSettings);
+
+        var user = new User
+        {
+            Id = "123",
+            Email = "test@example.com",
+            Roles = new List<string> { "User" }
+        };
+
+        var token = service.GenerateToken(user);
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(token);
+
+        jwt.Header.Should().NotBeNull();
+        jwt.Payload.Should().NotBeNull();
+        jwt.RawData.Should().NotBeNullOrEmpty();
     }
 }

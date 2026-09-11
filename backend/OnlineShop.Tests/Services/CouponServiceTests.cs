@@ -66,13 +66,20 @@ public class CouponServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // GET BY CODE
+    // GET BY CODE — EDGE CASES
     // ---------------------------------------------------------
 
     [Fact]
-    public async Task GetByCodeAsync_ShouldReturnNull_WhenCodeEmpty()
+    public async Task GetByCodeAsync_ShouldReturnNull_WhenCodeIsNull()
     {
-        var result = await _service.GetByCodeAsync("");
+        var result = await _service.GetByCodeAsync(null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByCodeAsync_ShouldReturnNull_WhenCodeIsWhitespace()
+    {
+        var result = await _service.GetByCodeAsync("   ");
         result.Should().BeNull();
     }
 
@@ -104,13 +111,20 @@ public class CouponServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // VALIDATE
+    // VALIDATE — EDGE CASES
     // ---------------------------------------------------------
 
     [Fact]
-    public async Task ValidateAsync_ShouldReturnNull_WhenCodeEmpty()
+    public async Task ValidateAsync_ShouldReturnNull_WhenCodeIsNull()
     {
-        var result = await _service.ValidateAsync("");
+        var result = await _service.ValidateAsync(null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ValidateAsync_ShouldReturnNull_WhenCodeIsWhitespace()
+    {
+        var result = await _service.ValidateAsync("   ");
         result.Should().BeNull();
     }
 
@@ -183,6 +197,8 @@ public class CouponServiceTests : RepositoryTestBase
         {
             Id = ObjectId.GenerateNewId().ToString(),
             Code = "GOOD",
+            Type = "percentage",
+            Value = 10,
             Active = true,
             Expiration = DateTime.UtcNow.AddDays(1),
             MaxUsage = 10,
@@ -197,14 +213,110 @@ public class CouponServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // CREATE
+    // CREATE — EDGE CASES
     // ---------------------------------------------------------
 
     [Fact]
-    public async Task CreateAsync_ShouldReturnNull_WhenCodeEmpty()
+    public async Task CreateAsync_ShouldReturnNull_WhenCouponIsNull()
     {
-        var result = await _service.CreateAsync(new Coupon { Code = "" });
+        var result = await _service.CreateAsync(null!);
         result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenCodeIsNull()
+    {
+        var result = await _service.CreateAsync(new Coupon { Code = null! });
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenCodeIsWhitespace()
+    {
+        var result = await _service.CreateAsync(new Coupon { Code = "   " });
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenTypeIsNull()
+    {
+        var result = await _service.CreateAsync(new Coupon { Code = "X", Type = null! });
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenTypeIsWhitespace()
+    {
+        var result = await _service.CreateAsync(new Coupon { Code = "X", Type = "   " });
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenValueIsZeroOrNegative()
+    {
+        var result1 = await _service.CreateAsync(new Coupon { Code = "X", Type = "percentage", Value = 0 });
+        var result2 = await _service.CreateAsync(new Coupon { Code = "Y", Type = "percentage", Value = -5 });
+
+        result1.Should().BeNull();
+        result2.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenExpirationMissing()
+    {
+        var result = await _service.CreateAsync(new Coupon { Code = "X", Type = "percentage", Value = 10 });
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenMaxUsageZeroOrNegative()
+    {
+        var result1 = await _service.CreateAsync(new Coupon { Code = "X", Type = "percentage", Value = 10, Expiration = DateTime.UtcNow.AddDays(1), MaxUsage = 0 });
+        var result2 = await _service.CreateAsync(new Coupon { Code = "Y", Type = "percentage", Value = 10, Expiration = DateTime.UtcNow.AddDays(1), MaxUsage = -3 });
+
+        result1.Should().BeNull();
+        result2.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenCodeAlreadyExists()
+    {
+        await _repo.CreateAsync(new Coupon
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            Code = "DUP",
+            Type = "percentage",
+            Value = 10,
+            Expiration = DateTime.UtcNow.AddDays(1),
+            MaxUsage = 10
+        });
+
+        var result = await _service.CreateAsync(new Coupon
+        {
+            Code = "DUP",
+            Type = "percentage",
+            Value = 10,
+            Expiration = DateTime.UtcNow.AddDays(1),
+            MaxUsage = 10
+        });
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldTrimCode()
+    {
+        var created = await _service.CreateAsync(new Coupon
+        {
+            Code = "   NEW   ",
+            Type = "percentage",
+            Value = 10,
+            Expiration = DateTime.UtcNow.AddDays(1),
+            MaxUsage = 10
+        });
+
+        created.Should().NotBeNull();
+        created!.Code.Should().Be("NEW");
     }
 
     [Fact]
@@ -229,8 +341,22 @@ public class CouponServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // DELETE
+    // DELETE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsNull()
+    {
+        var result = await _service.DeleteAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsWhitespace()
+    {
+        var result = await _service.DeleteAsync("   ");
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task DeleteAsync_ShouldReturnFalse_WhenIdInvalid()

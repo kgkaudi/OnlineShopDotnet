@@ -49,8 +49,22 @@ public class ProductServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // GET BY ID
+    // GET BY ID — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdNull()
+    {
+        var result = await _service.GetByIdAsync(null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdWhitespace()
+    {
+        var result = await _service.GetByIdAsync("   ");
+        result.Should().BeNull();
+    }
 
     [Fact]
     public async Task GetByIdAsync_ShouldReturnNull_WhenIdInvalid()
@@ -77,8 +91,78 @@ public class ProductServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // CREATE
+    // CREATE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenProductIsNull()
+    {
+        var result = await _service.CreateAsync(null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenNameNull()
+    {
+        var result = await _service.CreateAsync(new Product { Name = null!, Price = 10 });
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenNameWhitespace()
+    {
+        var result = await _service.CreateAsync(new Product { Name = "   ", Price = 10 });
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenPriceZeroOrNegative()
+    {
+        var result1 = await _service.CreateAsync(new Product { Name = "X", Price = 0 });
+        var result2 = await _service.CreateAsync(new Product { Name = "Y", Price = -5 });
+
+        result1.Should().BeNull();
+        result2.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenCategoryIdInvalid()
+    {
+        var result = await _service.CreateAsync(new Product
+        {
+            Name = "X",
+            Price = 10,
+            CategoryId = "invalid-id"
+        });
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenStockNegative()
+    {
+        var result = await _service.CreateAsync(new Product
+        {
+            Name = "X",
+            Price = 10,
+            StockQuantity = -1
+        });
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldTrimName()
+    {
+        var created = await _service.CreateAsync(new Product
+        {
+            Name = "   New   ",
+            Price = 10
+        });
+
+        created.Should().NotBeNull();
+        created!.Name.Should().Be("New");
+    }
 
     [Fact]
     public async Task CreateAsync_ShouldGenerateId_WhenMissing()
@@ -91,18 +175,41 @@ public class ProductServiceTests : RepositoryTestBase
 
         var created = await _service.CreateAsync(product);
 
-        created.Id.Should().NotBeNull();
+        created.Should().NotBeNull();
+        created!.Id.Should().NotBeNull();
     }
 
     // ---------------------------------------------------------
-    // UPDATE
+    // UPDATE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenProductIsNull()
+    {
+        var result = await _service.UpdateAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdNull()
+    {
+        var product = new Product { Id = null!, Name = "X", Price = 10 };
+        var result = await _service.UpdateAsync(product);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdWhitespace()
+    {
+        var product = new Product { Id = "   ", Name = "X", Price = 10 };
+        var result = await _service.UpdateAsync(product);
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenIdInvalid()
     {
         var product = new Product { Id = "invalid-id", Name = "X", Price = 10 };
-
         var result = await _service.UpdateAsync(product);
         result.Should().BeFalse();
     }
@@ -116,6 +223,113 @@ public class ProductServiceTests : RepositoryTestBase
             Name = "Missing",
             Price = 10
         };
+
+        var result = await _service.UpdateAsync(product);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenNameNull()
+    {
+        var product = new Product
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            Name = null!,
+            Price = 10
+        };
+
+        await _repo.CreateAsync(new Product
+        {
+            Id = product.Id,
+            Name = "Old",
+            Price = 10
+        });
+
+        var result = await _service.UpdateAsync(product);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenNameWhitespace()
+    {
+        var product = new Product
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            Name = "   ",
+            Price = 10
+        };
+
+        await _repo.CreateAsync(new Product
+        {
+            Id = product.Id,
+            Name = "Old",
+            Price = 10
+        });
+
+        var result = await _service.UpdateAsync(product);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenPriceZeroOrNegative()
+    {
+        var product = new Product
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            Name = "X",
+            Price = 0
+        };
+
+        await _repo.CreateAsync(new Product
+        {
+            Id = product.Id,
+            Name = "Old",
+            Price = 10
+        });
+
+        var result = await _service.UpdateAsync(product);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenCategoryIdInvalid()
+    {
+        var product = new Product
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            Name = "X",
+            Price = 10,
+            CategoryId = "invalid-id"
+        };
+
+        await _repo.CreateAsync(new Product
+        {
+            Id = product.Id,
+            Name = "Old",
+            Price = 10
+        });
+
+        var result = await _service.UpdateAsync(product);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenStockNegative()
+    {
+        var product = new Product
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            Name = "X",
+            Price = 10,
+            StockQuantity = -1
+        };
+
+        await _repo.CreateAsync(new Product
+        {
+            Id = product.Id,
+            Name = "Old",
+            Price = 10
+        });
 
         var result = await _service.UpdateAsync(product);
         result.Should().BeFalse();
@@ -139,12 +353,27 @@ public class ProductServiceTests : RepositoryTestBase
         updated.Should().BeTrue();
 
         var fetched = await _repo.GetByIdAsync(product.Id);
+        fetched.Should().NotBeNull();
         fetched!.Name.Should().Be("Updated");
     }
 
     // ---------------------------------------------------------
-    // DELETE
+    // DELETE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdNull()
+    {
+        var result = await _service.DeleteAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdWhitespace()
+    {
+        var result = await _service.DeleteAsync("   ");
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task DeleteAsync_ShouldReturnFalse_WhenIdInvalid()
@@ -181,8 +410,22 @@ public class ProductServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // SEARCH
+    // SEARCH — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task SearchAsync_ShouldReturnEmpty_WhenKeywordNull()
+    {
+        var result = await _service.SearchAsync(null, null, null, null, null, null, false);
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SearchAsync_ShouldReturnEmpty_WhenKeywordWhitespace()
+    {
+        var result = await _service.SearchAsync("   ", null, null, null, null, null, false);
+        result.Should().BeEmpty();
+    }
 
     [Fact]
     public async Task SearchAsync_ShouldFilterByKeyword()

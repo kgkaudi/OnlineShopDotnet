@@ -29,6 +29,20 @@ public class WishlistRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task GetByUserIdAsync_ShouldReturnEmptyList_WhenUserIdIsNull()
+    {
+        var result = await _repo.GetByUserIdAsync(null!);
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetByUserIdAsync_ShouldReturnEmptyList_WhenUserIdIsWhitespace()
+    {
+        var result = await _repo.GetByUserIdAsync("   ");
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task GetByUserIdAsync_ShouldReturnEmptyList_WhenUserIdIsInvalid()
     {
         var result = await _repo.GetByUserIdAsync("invalid-id");
@@ -71,6 +85,97 @@ public class WishlistRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task AddAsync_ShouldReturnFalse_WhenItemIsNull()
+    {
+        var result = await _repo.AddAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddAsync_ShouldReturnFalse_WhenIdIsMissing()
+    {
+        var item = new WishlistItem
+        {
+            Id = null!,
+            UserId = ObjectId.GenerateNewId().ToString(),
+            ProductId = ObjectId.GenerateNewId().ToString()
+        };
+
+        var result = await _repo.AddAsync(item);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddAsync_ShouldReturnFalse_WhenIdIsInvalid()
+    {
+        var item = new WishlistItem
+        {
+            Id = "invalid-id",
+            UserId = ObjectId.GenerateNewId().ToString(),
+            ProductId = ObjectId.GenerateNewId().ToString()
+        };
+
+        var result = await _repo.AddAsync(item);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddAsync_ShouldReturnFalse_WhenUserIdIsMissing()
+    {
+        var item = new WishlistItem
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = null!,
+            ProductId = ObjectId.GenerateNewId().ToString()
+        };
+
+        var result = await _repo.AddAsync(item);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddAsync_ShouldReturnFalse_WhenUserIdIsInvalid()
+    {
+        var item = new WishlistItem
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = "invalid-id",
+            ProductId = ObjectId.GenerateNewId().ToString()
+        };
+
+        var result = await _repo.AddAsync(item);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddAsync_ShouldReturnFalse_WhenProductIdIsMissing()
+    {
+        var item = new WishlistItem
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            ProductId = null!
+        };
+
+        var result = await _repo.AddAsync(item);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddAsync_ShouldReturnFalse_WhenProductIdIsInvalid()
+    {
+        var item = new WishlistItem
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            ProductId = "invalid-id"
+        };
+
+        var result = await _repo.AddAsync(item);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task AddAsync_ShouldInsertItem()
     {
         var item = new WishlistItem
@@ -92,9 +197,37 @@ public class WishlistRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task RemoveAsync_ShouldReturnFalse_WhenUserIdIsNull()
+    {
+        var result = await _repo.RemoveAsync(null!, ObjectId.GenerateNewId().ToString());
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RemoveAsync_ShouldReturnFalse_WhenUserIdIsWhitespace()
+    {
+        var result = await _repo.RemoveAsync("   ", ObjectId.GenerateNewId().ToString());
+        result.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task RemoveAsync_ShouldReturnFalse_WhenUserIdIsInvalid()
     {
         var result = await _repo.RemoveAsync("invalid-id", ObjectId.GenerateNewId().ToString());
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RemoveAsync_ShouldReturnFalse_WhenProductIdIsNull()
+    {
+        var result = await _repo.RemoveAsync(ObjectId.GenerateNewId().ToString(), null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RemoveAsync_ShouldReturnFalse_WhenProductIdIsWhitespace()
+    {
+        var result = await _repo.RemoveAsync(ObjectId.GenerateNewId().ToString(), "   ");
         result.Should().BeFalse();
     }
 

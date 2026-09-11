@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MongoDB.Bson;
+using MongoDB.Driver;
 using OnlineShop.Api.Models;
 using OnlineShop.Api.Repositories;
 using Xunit;
@@ -47,6 +48,20 @@ public class CouponRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task GetByCodeAsync_ShouldReturnNull_WhenCodeIsNull()
+    {
+        var result = await _repo.GetByCodeAsync(null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByCodeAsync_ShouldReturnNull_WhenCodeIsWhitespace()
+    {
+        var result = await _repo.GetByCodeAsync("   ");
+        result.Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetByCodeAsync_ShouldReturnNull_WhenNotFound()
     {
         var result = await _repo.GetByCodeAsync("missing");
@@ -67,6 +82,20 @@ public class CouponRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
     // GET BY ID
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsNull()
+    {
+        var result = await _repo.GetByIdAsync(null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsWhitespace()
+    {
+        var result = await _repo.GetByIdAsync("   ");
+        result.Should().BeNull();
+    }
 
     [Fact]
     public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsInvalid()
@@ -99,6 +128,40 @@ public class CouponRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenCouponIsNull()
+    {
+        Func<Task> act = async () => await _repo.CreateAsync(null!);
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenCodeIsMissing()
+    {
+        var coupon = new Coupon { Code = null!, Type = "percentage", Value = 10 };
+
+        Func<Task> act = async () => await _repo.CreateAsync(coupon);
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenTypeIsMissing()
+    {
+        var coupon = new Coupon { Code = "X", Type = null!, Value = 10 };
+
+        Func<Task> act = async () => await _repo.CreateAsync(coupon);
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenValueIsZeroOrNegative()
+    {
+        var coupon = new Coupon { Code = "X", Type = "percentage", Value = 0 };
+
+        Func<Task> act = async () => await _repo.CreateAsync(coupon);
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
     public async Task CreateAsync_ShouldInsertCoupon()
     {
         var coupon = new Coupon { Code = "NEW", Type = "percentage", Value = 30 };
@@ -111,6 +174,29 @@ public class CouponRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
     // UPDATE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenCouponIsNull()
+    {
+        var result = await _repo.UpdateAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsMissing()
+    {
+        var coupon = new Coupon { Id = null!, Code = "X", Type = "percentage", Value = 10 };
+        var result = await _repo.UpdateAsync(coupon);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsWhitespace()
+    {
+        var coupon = new Coupon { Id = "   ", Code = "X", Type = "percentage", Value = 10 };
+        var result = await _repo.UpdateAsync(coupon);
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsInvalid()
@@ -128,6 +214,42 @@ public class CouponRepositoryTests : RepositoryTestBase
     }
 
     [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenCodeIsMissing()
+    {
+        var coupon = new Coupon { Code = "X", Type = "percentage", Value = 10 };
+        await _repo.CreateAsync(coupon);
+
+        coupon.Code = null!;
+
+        var result = await _repo.UpdateAsync(coupon);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenTypeIsMissing()
+    {
+        var coupon = new Coupon { Code = "X", Type = "percentage", Value = 10 };
+        await _repo.CreateAsync(coupon);
+
+        coupon.Type = null!;
+
+        var result = await _repo.UpdateAsync(coupon);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenValueIsZeroOrNegative()
+    {
+        var coupon = new Coupon { Code = "X", Type = "percentage", Value = 10 };
+        await _repo.CreateAsync(coupon);
+
+        coupon.Value = 0;
+
+        var result = await _repo.UpdateAsync(coupon);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenCouponDoesNotExist()
     {
         var coupon = new Coupon
@@ -137,6 +259,16 @@ public class CouponRepositoryTests : RepositoryTestBase
             Type = "fixed",
             Value = 5
         };
+
+        var result = await _repo.UpdateAsync(coupon);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenReplaceMatchedButNotModified()
+    {
+        var coupon = new Coupon { Code = "EDIT", Type = "percentage", Value = 10 };
+        await _repo.CreateAsync(coupon);
 
         var result = await _repo.UpdateAsync(coupon);
         result.Should().BeFalse();
@@ -160,6 +292,20 @@ public class CouponRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
     // DELETE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsNull()
+    {
+        var result = await _repo.DeleteAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsWhitespace()
+    {
+        var result = await _repo.DeleteAsync("   ");
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsInvalid()

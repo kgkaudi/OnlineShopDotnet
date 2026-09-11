@@ -28,8 +28,22 @@ public class WishlistServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // GET USER WISHLIST
+    // GET USER WISHLIST — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task GetUserWishlistAsync_ShouldReturnEmpty_WhenUserIdNull()
+    {
+        var result = await _service.GetUserWishlistAsync(null!);
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetUserWishlistAsync_ShouldReturnEmpty_WhenUserIdWhitespace()
+    {
+        var result = await _service.GetUserWishlistAsync("   ");
+        result.Should().BeEmpty();
+    }
 
     [Fact]
     public async Task GetUserWishlistAsync_ShouldReturnEmpty_WhenUserIdInvalid()
@@ -68,13 +82,41 @@ public class WishlistServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // ADD
+    // ADD — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task AddAsync_ShouldReturnFalse_WhenUserIdNull()
+    {
+        var result = await _service.AddAsync(null!, ObjectId.GenerateNewId().ToString());
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddAsync_ShouldReturnFalse_WhenUserIdWhitespace()
+    {
+        var result = await _service.AddAsync("   ", ObjectId.GenerateNewId().ToString());
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task AddAsync_ShouldReturnFalse_WhenUserIdInvalid()
     {
         var result = await _service.AddAsync("invalid-id", ObjectId.GenerateNewId().ToString());
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddAsync_ShouldReturnFalse_WhenProductIdNull()
+    {
+        var result = await _service.AddAsync(ObjectId.GenerateNewId().ToString(), null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddAsync_ShouldReturnFalse_WhenProductIdWhitespace()
+    {
+        var result = await _service.AddAsync(ObjectId.GenerateNewId().ToString(), "   ");
         result.Should().BeFalse();
     }
 
@@ -99,14 +141,57 @@ public class WishlistServiceTests : RepositoryTestBase
         result[0].ProductId.Should().Be(productId);
     }
 
+    [Fact]
+    public async Task AddAsync_ShouldNotDuplicateItem_WhenAlreadyExists()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var productId = ObjectId.GenerateNewId().ToString();
+
+        await _service.AddAsync(userId, productId);
+        var addedAgain = await _service.AddAsync(userId, productId);
+
+        addedAgain.Should().BeTrue();
+
+        var result = await _repo.GetByUserIdAsync(userId);
+        result.Should().HaveCount(1);
+    }
+
     // ---------------------------------------------------------
-    // REMOVE
+    // REMOVE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task RemoveAsync_ShouldReturnFalse_WhenUserIdNull()
+    {
+        var result = await _service.RemoveAsync(null!, ObjectId.GenerateNewId().ToString());
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RemoveAsync_ShouldReturnFalse_WhenUserIdWhitespace()
+    {
+        var result = await _service.RemoveAsync("   ", ObjectId.GenerateNewId().ToString());
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task RemoveAsync_ShouldReturnFalse_WhenUserIdInvalid()
     {
         var result = await _service.RemoveAsync("invalid-id", ObjectId.GenerateNewId().ToString());
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RemoveAsync_ShouldReturnFalse_WhenProductIdNull()
+    {
+        var result = await _service.RemoveAsync(ObjectId.GenerateNewId().ToString(), null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RemoveAsync_ShouldReturnFalse_WhenProductIdWhitespace()
+    {
+        var result = await _service.RemoveAsync(ObjectId.GenerateNewId().ToString(), "   ");
         result.Should().BeFalse();
     }
 

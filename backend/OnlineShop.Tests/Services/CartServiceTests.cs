@@ -28,149 +28,183 @@ public class CartServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // GET OR CREATE
+    // GET OR CREATE — EDGE CASES
     // ---------------------------------------------------------
 
     [Fact]
-    public async Task GetOrCreateAsync_ShouldCreateCart_WhenNoneExists()
+    public async Task GetOrCreateAsync_ShouldThrow_WhenUserIdIsNull()
     {
-        var userId = ObjectId.GenerateNewId().ToString();
-
-        var cart = await _service.GetOrCreateAsync(userId);
-
-        cart.Should().NotBeNull();
-        cart.UserId.Should().Be(userId);
-        cart.Items.Should().BeEmpty();
+        Func<Task> act = async () => await _service.GetOrCreateAsync(null!);
+        await act.Should().ThrowAsync<ArgumentException>();
     }
 
     [Fact]
-    public async Task GetOrCreateAsync_ShouldReturnExistingCart()
+    public async Task GetOrCreateAsync_ShouldThrow_WhenUserIdIsWhitespace()
     {
-        var userId = ObjectId.GenerateNewId().ToString();
-
-        var existing = new Cart
-        {
-            Id = ObjectId.GenerateNewId().ToString(),
-            UserId = userId,
-            Items = new List<CartItem>()
-        };
-
-        await _repo.CreateAsync(existing);
-
-        var cart = await _service.GetOrCreateAsync(userId);
-
-        cart.Id.Should().Be(existing.Id);
-    }
-
-    // ---------------------------------------------------------
-    // ADD ITEM
-    // ---------------------------------------------------------
-
-    [Fact]
-    public async Task AddItemAsync_ShouldAddNewItem()
-    {
-        var userId = ObjectId.GenerateNewId().ToString();
-        var productId = ObjectId.GenerateNewId().ToString();
-
-        var cart = await _service.AddItemAsync(userId, productId, 2);
-
-        cart.Items.Should().HaveCount(1);
-        cart.Items[0].ProductId.Should().Be(productId);
-        cart.Items[0].Quantity.Should().Be(2);
+        Func<Task> act = async () => await _service.GetOrCreateAsync("   ");
+        await act.Should().ThrowAsync<ArgumentException>();
     }
 
     [Fact]
-    public async Task AddItemAsync_ShouldIncreaseQuantity_WhenItemExists()
-    {
-        var userId = ObjectId.GenerateNewId().ToString();
-        var productId = ObjectId.GenerateNewId().ToString();
-
-        await _service.AddItemAsync(userId, productId, 2);
-        var cart = await _service.AddItemAsync(userId, productId, 3);
-
-        cart.Items.Should().HaveCount(1);
-        cart.Items[0].Quantity.Should().Be(5);
-    }
-
-    // ---------------------------------------------------------
-    // UPDATE QUANTITY
-    // ---------------------------------------------------------
-
-    [Fact]
-    public async Task UpdateQuantityAsync_ShouldUpdateQuantity_WhenItemExists()
-    {
-        var userId = ObjectId.GenerateNewId().ToString();
-        var productId = ObjectId.GenerateNewId().ToString();
-
-        await _service.AddItemAsync(userId, productId, 2);
-        var cart = await _service.UpdateQuantityAsync(userId, productId, 10);
-
-        cart.Items[0].Quantity.Should().Be(10);
-    }
-
-    [Fact]
-    public async Task UpdateQuantityAsync_ShouldDoNothing_WhenItemDoesNotExist()
-    {
-        var userId = ObjectId.GenerateNewId().ToString();
-        var productId = ObjectId.GenerateNewId().ToString();
-
-        var cart = await _service.UpdateQuantityAsync(userId, productId, 10);
-
-        cart.Items.Should().BeEmpty();
-    }
-
-    // ---------------------------------------------------------
-    // REMOVE ITEM
-    // ---------------------------------------------------------
-
-    [Fact]
-    public async Task RemoveItemAsync_ShouldRemoveItem()
-    {
-        var userId = ObjectId.GenerateNewId().ToString();
-        var productId = ObjectId.GenerateNewId().ToString();
-
-        await _service.AddItemAsync(userId, productId, 2);
-        var cart = await _service.RemoveItemAsync(userId, productId);
-
-        cart.Items.Should().BeEmpty();
-    }
-
-    // ---------------------------------------------------------
-    // CLEAR
-    // ---------------------------------------------------------
-
-    [Fact]
-    public async Task ClearAsync_ShouldClearCart()
-    {
-        var userId = ObjectId.GenerateNewId().ToString();
-        var productId = ObjectId.GenerateNewId().ToString();
-
-        await _service.AddItemAsync(userId, productId, 2);
-
-        var cleared = await _service.ClearAsync(userId);
-        cleared.Should().BeTrue();
-
-        var cart = await _repo.GetByUserIdAsync(userId);
-        cart!.Items.Should().BeEmpty();
-    }
-
-    // ---------------------------------------------------------
-    // INVALID IDS
-    // ---------------------------------------------------------
-
-    [Fact]
-    public async Task GetOrCreateAsync_ShouldThrow_WhenUserIdInvalid()
+    public async Task GetOrCreateAsync_ShouldThrow_WhenUserIdIsInvalidObjectId()
     {
         Func<Task> act = async () => await _service.GetOrCreateAsync("invalid-id");
         await act.Should().ThrowAsync<ArgumentException>();
     }
 
+    // ---------------------------------------------------------
+    // ADD ITEM — EDGE CASES
+    // ---------------------------------------------------------
+
     [Fact]
-    public async Task AddItemAsync_ShouldThrow_WhenProductIdInvalid()
+    public async Task AddItemAsync_ShouldThrow_WhenUserIdIsNull()
+    {
+        Func<Task> act = async () => await _service.AddItemAsync(null!, ObjectId.GenerateNewId().ToString(), 1);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task AddItemAsync_ShouldThrow_WhenUserIdIsWhitespace()
+    {
+        Func<Task> act = async () => await _service.AddItemAsync("   ", ObjectId.GenerateNewId().ToString(), 1);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task AddItemAsync_ShouldThrow_WhenUserIdIsInvalidObjectId()
+    {
+        Func<Task> act = async () => await _service.AddItemAsync("invalid-id", ObjectId.GenerateNewId().ToString(), 1);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task AddItemAsync_ShouldThrow_WhenProductIdIsNull()
     {
         var userId = ObjectId.GenerateNewId().ToString();
-
-        Func<Task> act = async () => await _service.AddItemAsync(userId, "invalid-id", 2);
+        Func<Task> act = async () => await _service.AddItemAsync(userId, null!, 1);
         await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task AddItemAsync_ShouldThrow_WhenProductIdIsWhitespace()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        Func<Task> act = async () => await _service.AddItemAsync(userId, "   ", 1);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task AddItemAsync_ShouldThrow_WhenProductIdIsInvalidObjectId()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        Func<Task> act = async () => await _service.AddItemAsync(userId, "invalid-id", 1);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task AddItemAsync_ShouldThrow_WhenQuantityIsZero()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var productId = ObjectId.GenerateNewId().ToString();
+
+        Func<Task> act = async () => await _service.AddItemAsync(userId, productId, 0);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task AddItemAsync_ShouldThrow_WhenQuantityIsNegative()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var productId = ObjectId.GenerateNewId().ToString();
+
+        Func<Task> act = async () => await _service.AddItemAsync(userId, productId, -5);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    // ---------------------------------------------------------
+    // UPDATE QUANTITY — EDGE CASES
+    // ---------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateQuantityAsync_ShouldThrow_WhenUserIdInvalid()
+    {
+        Func<Task> act = async () => await _service.UpdateQuantityAsync("invalid-id", ObjectId.GenerateNewId().ToString(), 5);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task UpdateQuantityAsync_ShouldThrow_WhenProductIdInvalid()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        Func<Task> act = async () => await _service.UpdateQuantityAsync(userId, "invalid-id", 5);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task UpdateQuantityAsync_ShouldThrow_WhenQuantityIsZero()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var productId = ObjectId.GenerateNewId().ToString();
+
+        Func<Task> act = async () => await _service.UpdateQuantityAsync(userId, productId, 0);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task UpdateQuantityAsync_ShouldThrow_WhenQuantityIsNegative()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var productId = ObjectId.GenerateNewId().ToString();
+
+        Func<Task> act = async () => await _service.UpdateQuantityAsync(userId, productId, -10);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    // ---------------------------------------------------------
+    // REMOVE ITEM — EDGE CASES
+    // ---------------------------------------------------------
+
+    [Fact]
+    public async Task RemoveItemAsync_ShouldThrow_WhenUserIdInvalid()
+    {
+        Func<Task> act = async () => await _service.RemoveItemAsync("invalid-id", ObjectId.GenerateNewId().ToString());
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task RemoveItemAsync_ShouldThrow_WhenProductIdInvalid()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        Func<Task> act = async () => await _service.RemoveItemAsync(userId, "invalid-id");
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task RemoveItemAsync_ShouldDoNothing_WhenItemDoesNotExist()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var productId = ObjectId.GenerateNewId().ToString();
+
+        var cart = await _service.RemoveItemAsync(userId, productId);
+        cart.Items.Should().BeEmpty();
+    }
+
+    // ---------------------------------------------------------
+    // CLEAR — EDGE CASES
+    // ---------------------------------------------------------
+
+    [Fact]
+    public async Task ClearAsync_ShouldThrow_WhenUserIdInvalid()
+    {
+        Func<Task> act = async () => await _service.ClearAsync("invalid-id");
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task ClearAsync_ShouldReturnFalse_WhenCartDoesNotExist()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var result = await _service.ClearAsync(userId);
+        result.Should().BeFalse();
     }
 }

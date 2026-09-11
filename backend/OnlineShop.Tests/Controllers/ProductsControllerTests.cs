@@ -48,6 +48,17 @@ public class ProductsControllerTests
         result.Should().BeOfType<OkObjectResult>();
     }
 
+    [Fact]
+    public async Task GetAll_ShouldReturnEmptyList_WhenNoProducts()
+    {
+        var controller = CreateController(new FakeProductService());
+
+        var result = await controller.GetAll();
+
+        var list = result.As<OkObjectResult>().Value as List<Product>;
+        list.Should().BeEmpty();
+    }
+
     // ---------------------------------------------------------
     // GET BY ID
     // ---------------------------------------------------------
@@ -111,9 +122,40 @@ public class ProductsControllerTests
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
+    [Fact]
+    public async Task Search_ShouldReturnOk_WhenValid()
+    {
+        var controller = CreateController(new FakeProductService());
+
+        var result = await controller.Search("test", null, null, null, null, null, false);
+
+        result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task Search_ShouldReturnEmptyList_WhenNoMatches()
+    {
+        var controller = CreateController(new FakeProductService());
+
+        var result = await controller.Search("nomatch", null, null, null, null, null, false);
+
+        var list = result.As<OkObjectResult>().Value as List<Product>;
+        list.Should().BeEmpty();
+    }
+
     // ---------------------------------------------------------
     // CREATE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task Create_ShouldReturnUnauthorized_WhenNotAdmin()
+    {
+        var controller = CreateController(new FakeProductService(), isAdmin: false);
+
+        var result = await controller.Create(new Product { Name = "Test", Price = 10 });
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
 
     [Fact]
     public async Task Create_ShouldReturnBadRequest_WhenNameMissing()
@@ -136,6 +178,16 @@ public class ProductsControllerTests
     }
 
     [Fact]
+    public async Task Create_ShouldReturnBadRequest_WhenProductNull()
+    {
+        var controller = CreateController(new FakeProductService(), isAdmin: true);
+
+        var result = await controller.Create(null!);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
     public async Task Create_ShouldReturnCreated_WhenValid()
     {
         var controller = CreateController(new FakeProductService(), isAdmin: true);
@@ -150,11 +202,31 @@ public class ProductsControllerTests
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task Update_ShouldReturnUnauthorized_WhenNotAdmin()
+    {
+        var controller = CreateController(new FakeProductService(), isAdmin: false);
+
+        var result = await controller.Update(ObjectId.GenerateNewId().ToString(), new Product { Name = "Test", Price = 10 });
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
     public async Task Update_ShouldReturnBadRequest_WhenIdInvalid()
     {
         var controller = CreateController(new FakeProductService(), isAdmin: true);
 
         var result = await controller.Update("invalid-id", new Product { Name = "Test", Price = 10 });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Update_ShouldReturnBadRequest_WhenProductNull()
+    {
+        var controller = CreateController(new FakeProductService(), isAdmin: true);
+
+        var result = await controller.Update(ObjectId.GenerateNewId().ToString(), null!);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -184,9 +256,35 @@ public class ProductsControllerTests
         result.Should().BeOfType<OkObjectResult>();
     }
 
+    [Fact]
+    public async Task Update_ShouldReturnNotFound_WhenUpdatingTwice()
+    {
+        var service = new FakeProductService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddProduct(id, "Old", 10);
+
+        var controller = CreateController(service, isAdmin: true);
+
+        var first = await controller.Update(id, new Product { Name = "Updated", Price = 20 });
+        var second = await controller.Update(id, new Product { Name = "UpdatedAgain", Price = 30 });
+
+        first.Should().BeOfType<OkObjectResult>();
+        second.Should().BeOfType<NotFoundObjectResult>();
+    }
+
     // ---------------------------------------------------------
     // DELETE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task Delete_ShouldReturnUnauthorized_WhenNotAdmin()
+    {
+        var controller = CreateController(new FakeProductService(), isAdmin: false);
+
+        var result = await controller.Delete(ObjectId.GenerateNewId().ToString());
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
 
     [Fact]
     public async Task Delete_ShouldReturnBadRequest_WhenIdInvalid()
@@ -222,6 +320,22 @@ public class ProductsControllerTests
 
         result.Should().BeOfType<OkObjectResult>();
     }
+
+    [Fact]
+    public async Task Delete_ShouldReturnNotFound_WhenDeletingTwice()
+    {
+        var service = new FakeProductService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddProduct(id, "ToDelete", 10);
+
+        var controller = CreateController(service, isAdmin: true);
+
+        var first = await controller.Delete(id);
+        var second = await controller.Delete(id);
+
+        first.Should().BeOfType<OkObjectResult>();
+        second.Should().BeOfType<NotFoundObjectResult>();
+    }
 }
 
 // ---------------------------------------------------------
@@ -254,15 +368,21 @@ public class FakeProductService : IProductService
     )
         => Task.FromResult(_store.Values.ToList());
 
-    public Task<Product> CreateAsync(Product product)
+    public Task<Product?> CreateAsync(Product product)
     {
+        if (product == null)
+            return Task.FromResult<Product?>(null);
+
         product.Id = ObjectId.GenerateNewId().ToString();
         _store[product.Id] = product;
-        return Task.FromResult(product);
+        return Task.FromResult<Product?>(product);
     }
 
     public Task<bool> UpdateAsync(Product product)
     {
+        if (product == null || string.IsNullOrWhiteSpace(product.Id))
+            return Task.FromResult(false);
+
         if (!_store.ContainsKey(product.Id))
             return Task.FromResult(false);
 

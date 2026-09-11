@@ -28,8 +28,22 @@ public class InventoryServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // RESTOCK
+    // RESTOCK — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task RestockAsync_ShouldReturnFalse_WhenProductIdIsNull()
+    {
+        var result = await _service.RestockAsync(null!, 10);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RestockAsync_ShouldReturnFalse_WhenProductIdIsWhitespace()
+    {
+        var result = await _service.RestockAsync("   ", 10);
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task RestockAsync_ShouldReturnFalse_WhenProductIdInvalid()
@@ -83,8 +97,22 @@ public class InventoryServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // REDUCE STOCK
+    // REDUCE STOCK — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task ReduceStockAsync_ShouldReturnFalse_WhenProductIdIsNull()
+    {
+        var result = await _service.ReduceStockAsync(null!, 10);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ReduceStockAsync_ShouldReturnFalse_WhenProductIdIsWhitespace()
+    {
+        var result = await _service.ReduceStockAsync("   ", 10);
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task ReduceStockAsync_ShouldReturnFalse_WhenProductIdInvalid()

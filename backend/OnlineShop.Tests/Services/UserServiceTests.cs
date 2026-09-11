@@ -49,8 +49,22 @@ public class UserServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // GET BY ID
+    // GET BY ID — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdNull()
+    {
+        var result = await _service.GetByIdAsync(null!, "ignored", true);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdWhitespace()
+    {
+        var result = await _service.GetByIdAsync("   ", "ignored", true);
+        result.Should().BeNull();
+    }
 
     [Fact]
     public async Task GetByIdAsync_ShouldReturnNull_WhenIdInvalid()
@@ -97,13 +111,111 @@ public class UserServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // ADD ROLE
+    // CREATE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenUserIsNull()
+    {
+        var result = await _service.CreateAsync(null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenEmailNull()
+    {
+        var result = await _service.CreateAsync(new User { Email = null! });
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenEmailWhitespace()
+    {
+        var result = await _service.CreateAsync(new User { Email = "   " });
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenEmailAlreadyExists()
+    {
+        await _repo.CreateAsync(new User
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            Email = "dup@test.com"
+        });
+
+        var result = await _service.CreateAsync(new User
+        {
+            Email = "dup@test.com"
+        });
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldTrimEmail()
+    {
+        var created = await _service.CreateAsync(new User
+        {
+            Email = "   new@test.com   "
+        });
+
+        created.Should().NotBeNull();
+        created!.Email.Should().Be("new@test.com");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldGenerateId_WhenMissing()
+    {
+        var user = new User
+        {
+            Email = "new@test.com"
+        };
+
+        var created = await _service.CreateAsync(user);
+
+        created.Should().NotBeNull();
+        created!.Id.Should().NotBeNull();
+    }
+
+    // ---------------------------------------------------------
+    // ADD ROLE — EDGE CASES
+    // ---------------------------------------------------------
+
+    [Fact]
+    public async Task AddRoleAsync_ShouldReturnFalse_WhenUserIdNull()
+    {
+        var result = await _service.AddRoleAsync(null!, "Admin");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddRoleAsync_ShouldReturnFalse_WhenUserIdWhitespace()
+    {
+        var result = await _service.AddRoleAsync("   ", "Admin");
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task AddRoleAsync_ShouldReturnFalse_WhenUserIdInvalid()
     {
         var result = await _service.AddRoleAsync("invalid-id", "Admin");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddRoleAsync_ShouldReturnFalse_WhenRoleNull()
+    {
+        var id = ObjectId.GenerateNewId().ToString();
+        var result = await _service.AddRoleAsync(id, null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AddRoleAsync_ShouldReturnFalse_WhenRoleWhitespace()
+    {
+        var id = ObjectId.GenerateNewId().ToString();
+        var result = await _service.AddRoleAsync(id, "   ");
         result.Should().BeFalse();
     }
 
@@ -119,12 +231,27 @@ public class UserServiceTests : RepositoryTestBase
         added.Should().BeTrue();
 
         var fetched = await _repo.GetByIdAsync(id);
+        fetched.Should().NotBeNull();
         fetched!.Roles.Should().Contain("Admin");
     }
 
     // ---------------------------------------------------------
-    // DELETE
+    // DELETE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdNull()
+    {
+        var result = await _service.DeleteAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdWhitespace()
+    {
+        var result = await _service.DeleteAsync("   ");
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task DeleteAsync_ShouldReturnFalse_WhenIdInvalid()

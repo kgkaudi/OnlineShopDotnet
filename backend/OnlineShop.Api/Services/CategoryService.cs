@@ -14,6 +14,23 @@ public class CategoryService : ICategoryService
     }
 
     // ---------------------------------------------------------
+    // VALIDATION HELPERS
+    // ---------------------------------------------------------
+
+    private static string? NormalizeName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+
+        return name.Trim();
+    }
+
+    private static bool IsValidObjectId(string id)
+    {
+        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+    }
+
+    // ---------------------------------------------------------
     // GET ALL
     // ---------------------------------------------------------
 
@@ -26,7 +43,7 @@ public class CategoryService : ICategoryService
 
     public async Task<Category?> GetByIdAsync(string id)
     {
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsValidObjectId(id))
             return null;
 
         return await _repo.GetByIdAsync(id);
@@ -38,13 +55,19 @@ public class CategoryService : ICategoryService
 
     public async Task<Category?> CreateAsync(string name)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        var normalized = NormalizeName(name);
+        if (normalized == null)
+            return null;
+
+        // Prevent duplicate names
+        var existing = await _repo.GetAllAsync();
+        if (existing.Any(c => c.Name.Equals(normalized, StringComparison.OrdinalIgnoreCase)))
             return null;
 
         var category = new Category
         {
             Id = ObjectId.GenerateNewId().ToString(),
-            Name = name
+            Name = normalized
         };
 
         await _repo.CreateAsync(category);
@@ -57,14 +80,27 @@ public class CategoryService : ICategoryService
 
     public async Task<bool> UpdateAsync(string id, string name)
     {
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsValidObjectId(id))
+            return false;
+
+        var normalized = NormalizeName(name);
+        if (normalized == null)
             return false;
 
         var existing = await _repo.GetByIdAsync(id);
         if (existing == null)
             return false;
 
-        existing.Name = name;
+        // Prevent unchanged update
+        if (existing.Name.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // Prevent duplicate name
+        var all = await _repo.GetAllAsync();
+        if (all.Any(c => c.Id != id && c.Name.Equals(normalized, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        existing.Name = normalized;
 
         return await _repo.UpdateAsync(existing);
     }
@@ -75,7 +111,7 @@ public class CategoryService : ICategoryService
 
     public async Task<bool> DeleteAsync(string id)
     {
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsValidObjectId(id))
             return false;
 
         return await _repo.DeleteAsync(id);

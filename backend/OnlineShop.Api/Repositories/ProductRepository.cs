@@ -1,4 +1,5 @@
 using MongoDB.Driver;
+using MongoDB.Bson;
 using OnlineShop.Api.Models;
 
 namespace OnlineShop.Api.Repositories;
@@ -22,28 +23,92 @@ public class ProductRepository : IProductRepository
     }
 
     // ---------------------------------------------------------
-    // CRUD
+    // CREATE
+    // ---------------------------------------------------------
+
+    public async Task CreateAsync(Product product)
+    {
+        if (product == null)
+            throw new ArgumentNullException(nameof(product));
+
+        if (string.IsNullOrWhiteSpace(product.Name))
+            throw new ArgumentNullException(nameof(product.Name));
+
+        if (product.Price <= 0)
+            throw new ArgumentOutOfRangeException(nameof(product.Price));
+
+        if (string.IsNullOrWhiteSpace(product.Id))
+            product.Id = ObjectId.GenerateNewId().ToString();
+
+        await _products.InsertOneAsync(product);
+    }
+
+    // ---------------------------------------------------------
+    // READ
     // ---------------------------------------------------------
 
     public async Task<List<Product>> GetAllAsync() =>
         await _products.Find(_ => true).ToListAsync();
 
-    public async Task<Product?> GetByIdAsync(string id) =>
-        await _products.Find(p => p.Id == id).FirstOrDefaultAsync();
+    public async Task<Product?> GetByIdAsync(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return null;
 
-    public async Task CreateAsync(Product product) =>
-        await _products.InsertOneAsync(product);
+        if (!ObjectId.TryParse(id, out _))
+            return null;
+
+        return await _products.Find(p => p.Id == id).FirstOrDefaultAsync();
+    }
+
+    // ---------------------------------------------------------
+    // UPDATE
+    // ---------------------------------------------------------
 
     public async Task<bool> UpdateAsync(Product product)
     {
-        var result = await _products.ReplaceOneAsync(p => p.Id == product.Id, product);
-        return result.ModifiedCount > 0;
+        if (product == null)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(product.Id))
+            return false;
+
+        if (!ObjectId.TryParse(product.Id, out _))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(product.Name))
+            return false;
+
+        if (product.Price <= 0)
+            return false;
+
+        var existing = await GetByIdAsync(product.Id);
+        if (existing == null)
+            return false;
+
+        var result = await _products.ReplaceOneAsync(
+            p => p.Id == product.Id,
+            product
+        );
+
+        return result.MatchedCount == 1 && result.ModifiedCount == 1;
     }
+
+    // ---------------------------------------------------------
+    // DELETE
+    // ---------------------------------------------------------
 
     public async Task<bool> DeleteAsync(string id)
     {
+        if (string.IsNullOrWhiteSpace(id))
+            return false;
+
+        if (!ObjectId.TryParse(id, out _))
+            return false;
+
         var result = await _products.DeleteOneAsync(p => p.Id == id);
-        return result.DeletedCount > 0;
+
+        return result.DeletedCount == 1;
     }
 
     // ---------------------------------------------------------

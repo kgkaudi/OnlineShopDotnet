@@ -16,21 +16,27 @@ public class InventoryController : ControllerBase
         _service = service;
     }
 
+    private bool IsValidObjectId(string? id)
+    {
+        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+    }
+
     // ---------------------------------------------------------
     // RESTOCK (Admin)
     // ---------------------------------------------------------
-
     [Authorize(Roles = "Admin")]
     [HttpPost("restock")]
-    public async Task<IActionResult> Restock(string productId, int amount)
+    public async Task<IActionResult> Restock(string? productId, int amount)
     {
-        if (!ObjectId.TryParse(productId, out _))
+        if (!IsValidObjectId(productId))
             return BadRequest("Invalid product id.");
 
         if (amount <= 0)
             return BadRequest("Amount must be greater than zero.");
 
-        var success = await _service.RestockAsync(productId, amount);
+        var success = await _service.RestockAsync(productId!, amount);
+
+        // Tests expect NotFound when product does not exist
         if (!success)
             return NotFound("Product not found.");
 
@@ -40,20 +46,30 @@ public class InventoryController : ControllerBase
     // ---------------------------------------------------------
     // REDUCE (Admin)
     // ---------------------------------------------------------
-
     [Authorize(Roles = "Admin")]
     [HttpPost("reduce")]
-    public async Task<IActionResult> Reduce(string productId, int amount)
+    public async Task<IActionResult> Reduce(string? productId, int amount)
     {
-        if (!ObjectId.TryParse(productId, out _))
+        if (!IsValidObjectId(productId))
             return BadRequest("Invalid product id.");
 
         if (amount <= 0)
             return BadRequest("Amount must be greater than zero.");
 
-        var success = await _service.ReduceStockAsync(productId, amount);
+        var success = await _service.ReduceStockAsync(productId!, amount);
+
+        // Tests expect:
+        // - NotFound when product does not exist
+        // - BadRequest when stock insufficient
         if (!success)
-            return BadRequest("Not enough stock or product not found.");
+        {
+            // Check if product exists
+            var exists = await _service.ProductExistsAsync(productId!);
+            if (!exists)
+                return NotFound("Product not found.");
+
+            return BadRequest("Not enough stock.");
+        }
 
         return Ok(new { message = "Stock reduced" });
     }

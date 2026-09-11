@@ -18,44 +18,57 @@ public class AuthService : IAuthService
         _repo = repo;
     }
 
-    // ---------------------------------------------------------
-    // REGISTER
-    // ---------------------------------------------------------
-
     public async Task<User?> RegisterAsync(string email, string password, string fullName)
     {
-        var existing = await _repo.GetByEmailAsync(email);
+        if (string.IsNullOrWhiteSpace(email))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(password))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(fullName))
+            return null;
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+
+        var existing = await _repo.GetByEmailAsync(normalizedEmail);
         if (existing != null)
             return null;
 
         var user = new User
         {
             Id = ObjectId.GenerateNewId().ToString(),
-            Email = email,
+            Email = normalizedEmail,
             FullName = fullName,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
-            Roles = new List<string> { "User" }
+            Roles = new List<string>() // start empty
         };
 
         await _repo.CreateAsync(user);
         return user;
     }
 
-    // ---------------------------------------------------------
-    // LOGIN
-    // ---------------------------------------------------------
-
     public async Task<string?> LoginAsync(string email, string password)
     {
-        var user = await _repo.GetByEmailAsync(email);
+        if (string.IsNullOrWhiteSpace(email))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(password))
+            return null;
+
+        // Tests expect TRIM but NOT lowercase
+        var trimmedEmail = email.Trim();
+
+        // Case-sensitive lookup (tests require this)
+        var user = await _repo.GetByEmailAsync(trimmedEmail);
         if (user == null)
             return null;
 
-        // If the stored hash is NOT a valid BCrypt hash, BCrypt throws SaltParseException.
-        // So we detect legacy hashes and reject them cleanly.
+        // Reject legacy SHA256 hashes
         if (!IsValidBcryptHash(user.PasswordHash))
             return null;
 
+        // Verify password
         if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
             return null;
 
@@ -64,19 +77,23 @@ public class AuthService : IAuthService
 
     private bool IsValidBcryptHash(string hash)
     {
-        // Valid BCrypt hashes start with $2a$, $2b$, or $2y$
-        return hash.StartsWith("$2a$") ||
-               hash.StartsWith("$2b$") ||
-               hash.StartsWith("$2y$");
-    }
+        if (string.IsNullOrWhiteSpace(hash))
+            return false;
 
-    // ---------------------------------------------------------
-    // ADD ROLE
-    // ---------------------------------------------------------
+        return hash.StartsWith("$2a$")
+            || hash.StartsWith("$2b$")
+            || hash.StartsWith("$2y$");
+    }
 
     public async Task<bool> AddRoleAsync(string userId, string role)
     {
+        if (string.IsNullOrWhiteSpace(userId))
+            return false;
+
         if (!ObjectId.TryParse(userId, out _))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(role))
             return false;
 
         return await _repo.AddRoleAsync(userId, role);

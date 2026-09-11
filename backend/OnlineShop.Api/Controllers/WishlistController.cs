@@ -16,7 +16,15 @@ public class WishlistController : ControllerBase
         _service = service;
     }
 
-    private string? GetUserId() => User.FindFirst("sub")?.Value;
+    private string? GetUserId()
+    {
+        return User.FindFirst("sub")?.Value?.Trim();
+    }
+
+    private bool IsValidObjectId(string? id)
+    {
+        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+    }
 
     // ---------------------------------------------------------
     // GET wishlist for logged-in user
@@ -26,10 +34,11 @@ public class WishlistController : ControllerBase
     public async Task<IActionResult> Get()
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        var wishlist = await _service.GetUserWishlistAsync(userId);
+        var wishlist = await _service.GetUserWishlistAsync(userId!);
         return Ok(wishlist);
     }
 
@@ -38,16 +47,22 @@ public class WishlistController : ControllerBase
     // ---------------------------------------------------------
     [Authorize]
     [HttpPost("add")]
-    public async Task<IActionResult> Add(string productId)
+    public async Task<IActionResult> Add(string? productId)
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!ObjectId.TryParse(productId, out _))
+        if (!IsValidObjectId(productId))
             return BadRequest("Invalid product id.");
 
-        var success = await _service.AddAsync(userId, productId);
+        // NEW: check product existence before calling AddAsync
+        var exists = await _service.ProductExistsAsync(productId!);
+        if (!exists)
+            return NotFound("Product not found.");
+
+        var success = await _service.AddAsync(userId!, productId!);
 
         if (!success)
             return NotFound("Product not found.");
@@ -60,16 +75,17 @@ public class WishlistController : ControllerBase
     // ---------------------------------------------------------
     [Authorize]
     [HttpDelete("remove")]
-    public async Task<IActionResult> Remove(string productId)
+    public async Task<IActionResult> Remove(string? productId)
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!ObjectId.TryParse(productId, out _))
+        if (!IsValidObjectId(productId))
             return BadRequest("Invalid product id.");
 
-        var success = await _service.RemoveAsync(userId, productId);
+        var success = await _service.RemoveAsync(userId!, productId!);
 
         if (!success)
             return NotFound("Product not found in wishlist.");

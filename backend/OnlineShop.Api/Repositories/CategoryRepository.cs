@@ -28,6 +28,12 @@ public class CategoryRepository : ICategoryRepository
 
     public async Task CreateAsync(Category category)
     {
+        if (category == null)
+            throw new ArgumentNullException(nameof(category));
+
+        if (string.IsNullOrWhiteSpace(category.Name))
+            throw new ArgumentNullException(nameof(category.Name));
+
         if (string.IsNullOrWhiteSpace(category.Id))
             category.Id = ObjectId.GenerateNewId().ToString();
 
@@ -43,6 +49,9 @@ public class CategoryRepository : ICategoryRepository
 
     public async Task<Category?> GetByIdAsync(string id)
     {
+        if (string.IsNullOrWhiteSpace(id))
+            return null;
+
         if (!ObjectId.TryParse(id, out _))
             return null;
 
@@ -55,13 +64,29 @@ public class CategoryRepository : ICategoryRepository
 
     public async Task<bool> UpdateAsync(Category category)
     {
+        if (category == null)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(category.Id))
+            return false;
+
         if (!ObjectId.TryParse(category.Id, out _))
             return false;
 
-        var result = await _categories.ReplaceOneAsync(c => c.Id == category.Id, category);
+        if (string.IsNullOrWhiteSpace(category.Name))
+            return false;
 
-        // Treat "no modification" as success if the category exists
-        return result.MatchedCount > 0;
+        var existing = await GetByIdAsync(category.Id);
+        if (existing == null)
+            return false;
+
+        var result = await _categories.ReplaceOneAsync(
+            c => c.Id == category.Id,
+            category
+        );
+
+        // Must be BOTH matched AND modified
+        return result.MatchedCount == 1 && result.ModifiedCount == 1;
     }
 
     // ---------------------------------------------------------
@@ -70,10 +95,14 @@ public class CategoryRepository : ICategoryRepository
 
     public async Task<bool> DeleteAsync(string id)
     {
+        if (string.IsNullOrWhiteSpace(id))
+            return false;
+
         if (!ObjectId.TryParse(id, out _))
             return false;
 
         var result = await _categories.DeleteOneAsync(c => c.Id == id);
-        return result.DeletedCount > 0;
+
+        return result.DeletedCount == 1;
     }
 }

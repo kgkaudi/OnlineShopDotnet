@@ -17,45 +17,57 @@ public class OrdersController : ControllerBase
         _service = service;
     }
 
-    private string? GetUserId() => User.FindFirst("sub")?.Value;
+    private string? GetUserId()
+    {
+        return User.FindFirst("sub")?.Value?.Trim();
+    }
+
+    private bool IsValidObjectId(string? id)
+    {
+        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+    }
 
     // ---------------------------------------------------------
     // GET ALL
     // ---------------------------------------------------------
-
     [Authorize]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
         var isAdmin = User.IsInRole("Admin");
 
-        var orders = await _service.GetAllAsync(isAdmin, userId);
+        var orders = await _service.GetAllAsync(isAdmin, userId!);
         return Ok(orders);
     }
 
     // ---------------------------------------------------------
     // GET BY ID
     // ---------------------------------------------------------
-
     [Authorize]
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(string id)
+    public async Task<IActionResult> GetById(string? id)
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid order id.");
 
         var isAdmin = User.IsInRole("Admin");
 
-        var order = await _service.GetByIdAsync(id, isAdmin, userId);
+        var order = await _service.GetByIdAsync(id!, isAdmin, userId!);
+
+        // Tests expect NotFound when order does not exist
         if (order == null)
+            return NotFound("Order not found.");
+
+        // Tests expect Forbid when order exists but user is not allowed
+        if (!isAdmin && order.UserId != userId)
             return Forbid();
 
         return Ok(order);
@@ -64,19 +76,21 @@ public class OrdersController : ControllerBase
     // ---------------------------------------------------------
     // CREATE
     // ---------------------------------------------------------
-
     [Authorize]
     [HttpPost]
-    public async Task<IActionResult> Create(Order order)
+    public async Task<IActionResult> Create(Order? order)
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
+
+        if (order == null)
+            return BadRequest("Invalid order data.");
 
         if (order.Items == null || !order.Items.Any())
             return BadRequest("Order must contain at least one item.");
 
-        order.UserId = userId;
+        order.UserId = userId!;
         order.CreatedAt = DateTime.UtcNow;
 
         var created = await _service.CreateAsync(order);
@@ -86,25 +100,35 @@ public class OrdersController : ControllerBase
     // ---------------------------------------------------------
     // UPDATE
     // ---------------------------------------------------------
-
     [Authorize]
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(string id, Order order)
+    public async Task<IActionResult> Update(string? id, Order? order)
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid order id.");
 
-        order.Id = id;
+        if (order == null)
+            return BadRequest("Invalid order data.");
+
+        order.Id = id!;
 
         var isAdmin = User.IsInRole("Admin");
 
-        var success = await _service.UpdateAsync(order, isAdmin, userId);
+        var success = await _service.UpdateAsync(order, isAdmin, userId!);
+
+        // Tests expect NotFound when order does not exist
         if (!success)
+        {
+            var exists = await _service.GetByIdAsync(id!, true, userId!);
+            if (exists == null)
+                return NotFound("Order not found.");
+
             return Forbid();
+        }
 
         return Ok(order);
     }
@@ -112,23 +136,30 @@ public class OrdersController : ControllerBase
     // ---------------------------------------------------------
     // DELETE
     // ---------------------------------------------------------
-
     [Authorize]
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(string id)
+    public async Task<IActionResult> Delete(string? id)
     {
         var userId = GetUserId();
-        if (userId == null || !ObjectId.TryParse(userId, out _))
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid order id.");
 
         var isAdmin = User.IsInRole("Admin");
 
-        var success = await _service.DeleteAsync(id, isAdmin, userId);
+        var success = await _service.DeleteAsync(id!, isAdmin, userId!);
+
+        // Tests expect NotFound when order does not exist
         if (!success)
+        {
+            var exists = await _service.GetByIdAsync(id!, true, userId!);
+            if (exists == null)
+                return NotFound("Order not found.");
+
             return Forbid();
+        }
 
         return Ok(new { message = "Order deleted successfully" });
     }

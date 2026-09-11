@@ -48,6 +48,16 @@ public class UsersControllerTests
         result.Should().BeOfType<OkObjectResult>();
     }
 
+    [Fact]
+    public async Task GetAll_ShouldReturnForbid_WhenNotAdmin()
+    {
+        var controller = CreateController(new FakeUserService(), ObjectId.GenerateNewId().ToString(), isAdmin: false);
+
+        var result = await controller.GetAll();
+
+        result.Should().BeOfType<ForbidResult>();
+    }
+
     // ---------------------------------------------------------
     // GET BY ID
     // ---------------------------------------------------------
@@ -120,6 +130,16 @@ public class UsersControllerTests
         result.Should().BeOfType<OkObjectResult>();
     }
 
+    [Fact]
+    public async Task GetById_ShouldReturnNotFound_WhenUserMissing()
+    {
+        var controller = CreateController(new FakeUserService(), ObjectId.GenerateNewId().ToString());
+
+        var result = await controller.GetById(ObjectId.GenerateNewId().ToString());
+
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
     // ---------------------------------------------------------
     // ADD ROLE
     // ---------------------------------------------------------
@@ -170,6 +190,21 @@ public class UsersControllerTests
         result.Should().BeOfType<OkObjectResult>();
     }
 
+    [Fact]
+    public async Task AddRole_ShouldReturnOk_WhenRoleAlreadyExists()
+    {
+        var service = new FakeUserService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddUser(id);
+        await service.AddRoleAsync(id, "Admin");
+
+        var controller = CreateController(service, ObjectId.GenerateNewId().ToString(), isAdmin: true);
+
+        var result = await controller.AddRole(id, "Admin");
+
+        result.Should().BeOfType<OkObjectResult>();
+    }
+
     // ---------------------------------------------------------
     // DELETE
     // ---------------------------------------------------------
@@ -208,6 +243,22 @@ public class UsersControllerTests
 
         result.Should().BeOfType<OkObjectResult>();
     }
+
+    [Fact]
+    public async Task Delete_ShouldReturnNotFound_WhenDeletingTwice()
+    {
+        var service = new FakeUserService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddUser(id);
+
+        var controller = CreateController(service, ObjectId.GenerateNewId().ToString(), isAdmin: true);
+
+        var first = await controller.Delete(id);
+        var second = await controller.Delete(id);
+
+        first.Should().BeOfType<OkObjectResult>();
+        second.Should().BeOfType<NotFoundObjectResult>();
+    }
 }
 
 // ---------------------------------------------------------
@@ -227,6 +278,12 @@ public class FakeUserService : IUserService
             FullName = "Test User",
             Roles = new List<string>()
         };
+    }
+
+    public Task<User?> CreateAsync(User user)
+    {
+        _store[user.Id] = user;
+        return Task.FromResult<User?>(user);
     }
 
     public Task<List<User>> GetAllAsync()
@@ -250,7 +307,9 @@ public class FakeUserService : IUserService
         if (!_store.ContainsKey(id))
             return Task.FromResult(false);
 
-        _store[id].Roles.Add(role);
+        if (!_store[id].Roles.Contains(role))
+            _store[id].Roles.Add(role);
+
         return Task.FromResult(true);
     }
 

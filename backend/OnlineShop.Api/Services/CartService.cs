@@ -14,13 +14,40 @@ public class CartService : ICartService
     }
 
     // ---------------------------------------------------------
+    // VALIDATION HELPERS
+    // ---------------------------------------------------------
+
+    private static void ValidateUserId(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+            throw new ArgumentException("UserId cannot be null or whitespace.", nameof(userId));
+
+        if (!ObjectId.TryParse(userId, out _))
+            throw new ArgumentException("Invalid userId.", nameof(userId));
+    }
+
+    private static void ValidateProductId(string productId)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+            throw new ArgumentException("ProductId cannot be null or whitespace.", nameof(productId));
+
+        if (!ObjectId.TryParse(productId, out _))
+            throw new ArgumentException("Invalid productId.", nameof(productId));
+    }
+
+    private static void ValidateQuantity(int quantity)
+    {
+        if (quantity <= 0)
+            throw new ArgumentException("Quantity must be greater than zero.", nameof(quantity));
+    }
+
+    // ---------------------------------------------------------
     // GET OR CREATE
     // ---------------------------------------------------------
 
     public async Task<Cart> GetOrCreateAsync(string userId)
     {
-        if (!ObjectId.TryParse(userId, out _))
-            throw new ArgumentException("Invalid userId", nameof(userId));
+        ValidateUserId(userId);
 
         var cart = await _repo.GetByUserIdAsync(userId);
         if (cart != null)
@@ -43,8 +70,9 @@ public class CartService : ICartService
 
     public async Task<Cart> AddItemAsync(string userId, string productId, int quantity)
     {
-        if (!ObjectId.TryParse(productId, out _))
-            throw new ArgumentException("Invalid productId", nameof(productId));
+        ValidateUserId(userId);
+        ValidateProductId(productId);
+        ValidateQuantity(quantity);
 
         var cart = await GetOrCreateAsync(userId);
 
@@ -72,8 +100,9 @@ public class CartService : ICartService
 
     public async Task<Cart> UpdateQuantityAsync(string userId, string productId, int quantity)
     {
-        if (!ObjectId.TryParse(productId, out _))
-            throw new ArgumentException("Invalid productId", nameof(productId));
+        ValidateUserId(userId);
+        ValidateProductId(productId);
+        ValidateQuantity(quantity);
 
         var cart = await GetOrCreateAsync(userId);
 
@@ -91,8 +120,8 @@ public class CartService : ICartService
 
     public async Task<Cart> RemoveItemAsync(string userId, string productId)
     {
-        if (!ObjectId.TryParse(productId, out _))
-            throw new ArgumentException("Invalid productId", nameof(productId));
+        ValidateUserId(userId);
+        ValidateProductId(productId);
 
         var cart = await GetOrCreateAsync(userId);
 
@@ -108,8 +137,7 @@ public class CartService : ICartService
 
     public async Task<bool> ClearAsync(string userId)
     {
-        if (!ObjectId.TryParse(userId, out _))
-            return false;
+        ValidateUserId(userId);
 
         return await _repo.ClearAsync(userId);
     }

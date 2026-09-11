@@ -15,47 +15,95 @@ public class JwtService : IJwtService
         _config = config;
     }
 
+    // ---------------------------------------------------------
+    // VALIDATION HELPERS
+    // ---------------------------------------------------------
+
+    private static void ValidateUser(User user)
+    {
+        if (user == null)
+            throw new ArgumentNullException(nameof(user));
+
+        if (string.IsNullOrWhiteSpace(user.Id))
+            throw new ArgumentNullException(nameof(user.Id));
+
+        if (string.IsNullOrWhiteSpace(user.Email))
+            throw new ArgumentNullException(nameof(user.Email));
+    }
+
+    private string GetConfig(string key)
+    {
+        var value = _config[key];
+        if (string.IsNullOrWhiteSpace(value))
+            throw new InvalidOperationException($"{key} is missing in configuration.");
+
+        return value;
+    }
+
+    private SymmetricSecurityKey BuildKey(string keyString)
+    {
+        if (string.IsNullOrWhiteSpace(keyString))
+            throw new InvalidOperationException("Jwt:Key is missing in configuration.");
+
+        if (keyString.Length < 32)
+            throw new ArgumentException("Jwt:Key must be at least 32 characters long.");
+
+        return new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
+    }
+
+    // ---------------------------------------------------------
+    // GENERATE TOKEN
+    // ---------------------------------------------------------
+
     public string GenerateToken(User user)
     {
-        // -----------------------------
-        // Validate configuration values
-        // -----------------------------
-        var keyString = _config["Jwt:Key"]
-            ?? throw new InvalidOperationException("Jwt:Key is missing in configuration.");
+        // ---------------------------------------------------------
+        // VALIDATION (tests expect ArgumentNullException)
+        // ---------------------------------------------------------
+        if (user == null)
+            throw new ArgumentNullException(nameof(user));
 
-        var issuer = _config["Jwt:Issuer"]
-            ?? throw new InvalidOperationException("Jwt:Issuer is missing in configuration.");
+        if (string.IsNullOrWhiteSpace(user.Id))
+            throw new ArgumentNullException(nameof(user.Id), "User ID is required.");
 
-        var audience = _config["Jwt:Audience"]
-            ?? throw new InvalidOperationException("Jwt:Audience is missing in configuration.");
+        if (string.IsNullOrWhiteSpace(user.Email))
+            throw new ArgumentNullException(nameof(user.Email), "Email is required.");
 
-        var expiresString = _config["Jwt:ExpiresInMinutes"]
-            ?? throw new InvalidOperationException("Jwt:ExpiresInMinutes is missing in configuration.");
+        // ---------------------------------------------------------
+        // CONFIG VALIDATION
+        // ---------------------------------------------------------
+        var keyString = GetConfig("Jwt:Key");
+        var issuer = GetConfig("Jwt:Issuer");
+        var audience = GetConfig("Jwt:Audience");
+        var expiresString = GetConfig("Jwt:ExpiresInMinutes");
 
         if (!int.TryParse(expiresString, out var expiresInMinutes))
             throw new InvalidOperationException("Jwt:ExpiresInMinutes must be a valid integer.");
 
-        // -----------------------------
-        // Build signing key
-        // -----------------------------
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
+        var key = BuildKey(keyString);
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        // -----------------------------
-        // Claims
-        // -----------------------------
+        // ---------------------------------------------------------
+        // CLAIMS
+        // ---------------------------------------------------------
         var claims = new List<Claim>
+    {
+        new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+        new Claim(JwtRegisteredClaimNames.Email, user.Email.Trim())
+    };
+
+        if (user.Roles != null)
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email)
-        };
+            foreach (var role in user.Roles)
+            {
+                if (!string.IsNullOrWhiteSpace(role))
+                    claims.Add(new Claim(ClaimTypes.Role, role));
+            }
+        }
 
-        foreach (var role in user.Roles)
-            claims.Add(new Claim(ClaimTypes.Role, role));
-
-        // -----------------------------
-        // Token creation
-        // -----------------------------
+        // ---------------------------------------------------------
+        // TOKEN
+        // ---------------------------------------------------------
         var token = new JwtSecurityToken(
             issuer: issuer,
             audience: audience,
@@ -67,10 +115,13 @@ public class JwtService : IJwtService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
+    // ---------------------------------------------------------
+    // GET EXPIRATION
+    // ---------------------------------------------------------
+
     public DateTime GetExpiration()
     {
-        var expiresString = _config["Jwt:ExpiresInMinutes"]
-            ?? throw new InvalidOperationException("Jwt:ExpiresInMinutes is missing in configuration.");
+        var expiresString = GetConfig("Jwt:ExpiresInMinutes");
 
         if (!int.TryParse(expiresString, out var expiresInMinutes))
             throw new InvalidOperationException("Jwt:ExpiresInMinutes must be a valid integer.");

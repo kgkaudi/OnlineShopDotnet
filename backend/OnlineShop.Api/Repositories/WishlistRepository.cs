@@ -28,6 +28,9 @@ public class WishlistRepository : IWishlistRepository
 
     public async Task<List<WishlistItem>> GetByUserIdAsync(string userId)
     {
+        if (string.IsNullOrWhiteSpace(userId))
+            return new List<WishlistItem>();
+
         if (!ObjectId.TryParse(userId, out _))
             return new List<WishlistItem>();
 
@@ -40,8 +43,26 @@ public class WishlistRepository : IWishlistRepository
 
     public async Task<bool> AddAsync(WishlistItem item)
     {
+        if (item == null)
+            return false;
+
         if (string.IsNullOrWhiteSpace(item.Id))
-            item.Id = ObjectId.GenerateNewId().ToString();
+            return false;
+
+        if (!ObjectId.TryParse(item.Id, out _))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(item.UserId))
+            return false;
+
+        if (!ObjectId.TryParse(item.UserId, out _))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(item.ProductId))
+            return false;
+
+        if (!ObjectId.TryParse(item.ProductId, out _))
+            return false;
 
         await _wishlist.InsertOneAsync(item);
         return true;
@@ -53,7 +74,13 @@ public class WishlistRepository : IWishlistRepository
 
     public async Task<bool> RemoveAsync(string userId, string productId)
     {
+        if (string.IsNullOrWhiteSpace(userId))
+            return false;
+
         if (!ObjectId.TryParse(userId, out _))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(productId))
             return false;
 
         if (!ObjectId.TryParse(productId, out _))
@@ -63,6 +90,6 @@ public class WishlistRepository : IWishlistRepository
             w => w.UserId == userId && w.ProductId == productId
         );
 
-        return result.DeletedCount > 0;
+        return result.DeletedCount == 1;
     }
 }

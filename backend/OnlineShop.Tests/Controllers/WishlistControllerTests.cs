@@ -74,6 +74,19 @@ public class WishlistControllerTests
         result.Should().BeOfType<OkObjectResult>();
     }
 
+    [Fact]
+    public async Task Get_ShouldReturnEmptyList_WhenUserHasNoWishlistItems()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var controller = CreateController(new FakeWishlistService(), userId);
+
+        var result = await controller.Get();
+
+        result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeAssignableTo<List<WishlistItem>>()
+            .Subject.Should().BeEmpty();
+    }
+
     // ---------------------------------------------------------
     // ADD
     // ---------------------------------------------------------
@@ -109,12 +122,51 @@ public class WishlistControllerTests
     }
 
     [Fact]
+    public async Task Add_ShouldReturnBadRequest_WhenProductIdIsNull()
+    {
+        var controller = CreateController(new FakeWishlistService(), ObjectId.GenerateNewId().ToString());
+
+        var result = await controller.Add(null!);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Add_ShouldReturnBadRequest_WhenProductIdIsEmpty()
+    {
+        var controller = CreateController(new FakeWishlistService(), ObjectId.GenerateNewId().ToString());
+
+        var result = await controller.Add("");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
     public async Task Add_ShouldReturnNotFound_WhenProductDoesNotExist()
     {
         var userId = ObjectId.GenerateNewId().ToString();
         var controller = CreateController(new FakeWishlistService(), userId);
 
         var productId = ObjectId.GenerateNewId().ToString();
+
+        var result = await controller.Add(productId);
+
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task Add_ShouldReturnNotFound_WhenServiceFailsEvenIfProductExists()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var productId = ObjectId.GenerateNewId().ToString();
+
+        var service = new FakeWishlistService();
+        service.MarkProductExists(productId);
+
+        // Simulate failure by removing product existence
+        await service.RemoveAsync(userId, productId);   // FIXED: await
+
+        var controller = CreateController(service, userId);
 
         var result = await controller.Add(productId);
 
@@ -135,6 +187,24 @@ public class WishlistControllerTests
         var result = await controller.Add(productId);
 
         result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task Add_ShouldReturnOk_WhenAddingSameProductTwice()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var productId = ObjectId.GenerateNewId().ToString();
+
+        var service = new FakeWishlistService();
+        service.MarkProductExists(productId);
+
+        var controller = CreateController(service, userId);
+
+        var first = await controller.Add(productId);
+        var second = await controller.Add(productId);
+
+        first.Should().BeOfType<OkObjectResult>();
+        second.Should().BeOfType<OkObjectResult>();
     }
 
     // ---------------------------------------------------------
@@ -172,12 +242,48 @@ public class WishlistControllerTests
     }
 
     [Fact]
+    public async Task Remove_ShouldReturnBadRequest_WhenProductIdIsNull()
+    {
+        var controller = CreateController(new FakeWishlistService(), ObjectId.GenerateNewId().ToString());
+
+        var result = await controller.Remove(null!);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Remove_ShouldReturnBadRequest_WhenProductIdIsEmpty()
+    {
+        var controller = CreateController(new FakeWishlistService(), ObjectId.GenerateNewId().ToString());
+
+        var result = await controller.Remove("");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
     public async Task Remove_ShouldReturnNotFound_WhenProductNotInWishlist()
     {
         var userId = ObjectId.GenerateNewId().ToString();
         var productId = ObjectId.GenerateNewId().ToString();
 
         var controller = CreateController(new FakeWishlistService(), userId);
+
+        var result = await controller.Remove(productId);
+
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task Remove_ShouldReturnNotFound_WhenServiceFailsEvenIfProductExists()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var productId = ObjectId.GenerateNewId().ToString();
+
+        var service = new FakeWishlistService();
+        service.MarkProductExists(productId);
+
+        var controller = CreateController(service, userId);
 
         var result = await controller.Remove(productId);
 
@@ -200,6 +306,25 @@ public class WishlistControllerTests
 
         result.Should().BeOfType<OkObjectResult>();
     }
+
+    [Fact]
+    public async Task Remove_ShouldReturnNotFound_WhenRemovingSameProductTwice()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var productId = ObjectId.GenerateNewId().ToString();
+
+        var service = new FakeWishlistService();
+        service.MarkProductExists(productId);
+        service.AddToWishlist(userId, productId);
+
+        var controller = CreateController(service, userId);
+
+        var first = await controller.Remove(productId);
+        var second = await controller.Remove(productId);
+
+        first.Should().BeOfType<OkObjectResult>();
+        second.Should().BeOfType<NotFoundObjectResult>();
+    }
 }
 
 // ---------------------------------------------------------
@@ -215,6 +340,12 @@ public class FakeWishlistService : IWishlistService
     {
         _existingProducts.Add(productId);
     }
+
+    public Task<bool> ProductExistsAsync(string productId)
+    {
+        return Task.FromResult(_existingProducts.Contains(productId));
+    }
+
 
     public void AddToWishlist(string userId, string productId)
     {

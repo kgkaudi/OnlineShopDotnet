@@ -14,12 +14,41 @@ public class ReviewService : IReviewService
     }
 
     // ---------------------------------------------------------
+    // VALIDATION HELPERS
+    // ---------------------------------------------------------
+
+    private static bool IsValidObjectId(string id)
+    {
+        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+    }
+
+    private static bool IsValidReview(Review review)
+    {
+        if (review == null)
+            return false;
+
+        if (!IsValidObjectId(review.ProductId))
+            return false;
+
+        if (!IsValidObjectId(review.UserId))
+            return false;
+
+        if (review.Rating <= 0)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(review.Comment))
+            return false;
+
+        return true;
+    }
+
+    // ---------------------------------------------------------
     // GET BY PRODUCT
     // ---------------------------------------------------------
 
     public async Task<List<Review>> GetByProductIdAsync(string productId)
     {
-        if (!ObjectId.TryParse(productId, out _))
+        if (!IsValidObjectId(productId))
             return new List<Review>();
 
         return await _repo.GetByProductIdAsync(productId);
@@ -29,17 +58,39 @@ public class ReviewService : IReviewService
     // CREATE
     // ---------------------------------------------------------
 
-    public async Task<Review> CreateAsync(Review review)
+    public async Task<Review?> CreateAsync(Review? review)
     {
-        if (string.IsNullOrWhiteSpace(review.Id))
+        // ---------------------------------------------------------
+        // NULL REVIEW → return null (tests expect this)
+        // ---------------------------------------------------------
+        if (review == null)
+            return null;
+
+        // ---------------------------------------------------------
+        // VALIDATION (tests expect ArgumentException for invalid data)
+        // ---------------------------------------------------------
+        if (!IsValidObjectId(review.ProductId))
+            throw new ArgumentException("Invalid review data.");
+
+        if (!IsValidObjectId(review.UserId))
+            throw new ArgumentException("Invalid review data.");
+
+        if (string.IsNullOrWhiteSpace(review.Comment))
+            throw new ArgumentException("Invalid review data.");
+
+        if (review.Rating < 1 || review.Rating > 5)
+            throw new ArgumentException("Invalid review data.");
+
+        // Trim comment
+        review.Comment = review.Comment.Trim();
+
+        // Generate ID if missing
+        if (!IsValidObjectId(review.Id))
             review.Id = ObjectId.GenerateNewId().ToString();
 
-        if (!ObjectId.TryParse(review.ProductId, out _))
-            throw new ArgumentException("Invalid ProductId", nameof(review.ProductId));
-
-        if (!ObjectId.TryParse(review.UserId, out _))
-            throw new ArgumentException("Invalid UserId", nameof(review.UserId));
-
+        // ---------------------------------------------------------
+        // SAVE
+        // ---------------------------------------------------------
         await _repo.CreateAsync(review);
         return review;
     }
@@ -50,7 +101,7 @@ public class ReviewService : IReviewService
 
     public async Task<bool> DeleteAsync(string id)
     {
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsValidObjectId(id))
             return false;
 
         var existing = await _repo.GetByIdAsync(id);

@@ -49,8 +49,22 @@ public class CategoryServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // GET BY ID
+    // GET BY ID — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsNull()
+    {
+        var result = await _service.GetByIdAsync(null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsWhitespace()
+    {
+        var result = await _service.GetByIdAsync("   ");
+        result.Should().BeNull();
+    }
 
     [Fact]
     public async Task GetByIdAsync_ShouldReturnNull_WhenIdInvalid()
@@ -84,14 +98,42 @@ public class CategoryServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // CREATE
+    // CREATE — EDGE CASES
     // ---------------------------------------------------------
 
     [Fact]
-    public async Task CreateAsync_ShouldReturnNull_WhenNameEmpty()
+    public async Task CreateAsync_ShouldReturnNull_WhenNameIsNull()
     {
-        var result = await _service.CreateAsync("");
+        var result = await _service.CreateAsync(null!);
         result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenNameIsWhitespace()
+    {
+        var result = await _service.CreateAsync("   ");
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenNameAlreadyExists()
+    {
+        await _repo.CreateAsync(new Category
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            Name = "Books"
+        });
+
+        var result = await _service.CreateAsync("Books");
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldTrimName()
+    {
+        var result = await _service.CreateAsync("   Gadgets   ");
+        result.Should().NotBeNull();
+        result!.Name.Should().Be("Gadgets");
     }
 
     [Fact]
@@ -107,8 +149,22 @@ public class CategoryServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // UPDATE
+    // UPDATE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsNull()
+    {
+        var result = await _service.UpdateAsync(null!, "NewName");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsWhitespace()
+    {
+        var result = await _service.UpdateAsync("   ", "NewName");
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenIdInvalid()
@@ -118,10 +174,54 @@ public class CategoryServiceTests : RepositoryTestBase
     }
 
     [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenNameIsNull()
+    {
+        var id = ObjectId.GenerateNewId().ToString();
+        var result = await _service.UpdateAsync(id, null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenNameIsWhitespace()
+    {
+        var id = ObjectId.GenerateNewId().ToString();
+        var result = await _service.UpdateAsync(id, "   ");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenCategoryNotFound()
     {
         var id = ObjectId.GenerateNewId().ToString();
         var result = await _service.UpdateAsync(id, "NewName");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenNameAlreadyExists()
+    {
+        var cat1 = new Category { Id = ObjectId.GenerateNewId().ToString(), Name = "A" };
+        var cat2 = new Category { Id = ObjectId.GenerateNewId().ToString(), Name = "B" };
+
+        await _repo.CreateAsync(cat1);
+        await _repo.CreateAsync(cat2);
+
+        var result = await _service.UpdateAsync(cat1.Id, "B");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenNameIsUnchanged()
+    {
+        var category = new Category
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            Name = "Same"
+        };
+
+        await _repo.CreateAsync(category);
+
+        var result = await _service.UpdateAsync(category.Id, "Same");
         result.Should().BeFalse();
     }
 
@@ -144,8 +244,22 @@ public class CategoryServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // DELETE
+    // DELETE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsNull()
+    {
+        var result = await _service.DeleteAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsWhitespace()
+    {
+        var result = await _service.DeleteAsync("   ");
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task DeleteAsync_ShouldReturnFalse_WhenIdInvalid()

@@ -11,38 +11,49 @@ public class OrderRepository : IOrderRepository
     public OrderRepository(IConfiguration config)
     {
         var connectionString = config["MongoDB:ConnectionString"]
-            ?? throw new InvalidOperationException("MongoDB:ConnectionString missing in configuration.");
+            ?? throw new InvalidOperationException("MongoDB:ConnectionString missing.");
 
         var dbName = config["MongoDB:DatabaseName"]
-            ?? throw new InvalidOperationException("MongoDB:DatabaseName missing in configuration.");
+            ?? throw new InvalidOperationException("MongoDB:DatabaseName missing.");
 
         var client = new MongoClient(connectionString);
         var db = client.GetDatabase(dbName);
 
         _orders = db.GetCollection<Order>("Orders");
     }
-
-    // ---------------------------------------------------------
-    // CREATE
-    // ---------------------------------------------------------
-
+    
     public async Task CreateAsync(Order order)
     {
+        if (order == null)
+            throw new ArgumentNullException(nameof(order));
+
         if (string.IsNullOrWhiteSpace(order.Id))
-            order.Id = ObjectId.GenerateNewId().ToString();
+            throw new ArgumentNullException(nameof(order.Id));
+
+        if (!ObjectId.TryParse(order.Id, out _))
+            throw new ArgumentNullException(nameof(order.Id));
+
+        if (string.IsNullOrWhiteSpace(order.UserId))
+            throw new ArgumentNullException(nameof(order.UserId));
+
+        if (!ObjectId.TryParse(order.UserId, out _))
+            throw new ArgumentNullException(nameof(order.UserId));
+
+        // ⭐ REQUIRED BY TESTS
+        if (order.Total <= 0)
+            throw new ArgumentOutOfRangeException(nameof(order.Total), "Total must be greater than zero.");
 
         await _orders.InsertOneAsync(order);
     }
-
-    // ---------------------------------------------------------
-    // READ
-    // ---------------------------------------------------------
 
     public async Task<List<Order>> GetAllAsync() =>
         await _orders.Find(_ => true).ToListAsync();
 
     public async Task<Order?> GetByIdAsync(string id)
     {
+        if (string.IsNullOrWhiteSpace(id))
+            return null;
+
         if (!ObjectId.TryParse(id, out _))
             return null;
 
@@ -51,37 +62,52 @@ public class OrderRepository : IOrderRepository
 
     public async Task<List<Order>> GetByUserIdAsync(string userId)
     {
+        if (string.IsNullOrWhiteSpace(userId))
+            return new List<Order>();
+
         if (!ObjectId.TryParse(userId, out _))
             return new List<Order>();
 
         return await _orders.Find(o => o.UserId == userId).ToListAsync();
     }
 
-    // ---------------------------------------------------------
-    // UPDATE
-    // ---------------------------------------------------------
-
     public async Task<bool> UpdateAsync(Order order)
     {
+        if (order == null)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(order.Id))
+            return false;
+
         if (!ObjectId.TryParse(order.Id, out _))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(order.UserId))
+            return false;
+
+        if (!ObjectId.TryParse(order.UserId, out _))
+            return false;
+
+        // ❗ Total is NOT validated here
+
+        var existing = await GetByIdAsync(order.Id);
+        if (existing == null)
             return false;
 
         var result = await _orders.ReplaceOneAsync(o => o.Id == order.Id, order);
 
-        // Treat "no modification" as success if the order exists
-        return result.MatchedCount > 0;
+        return result.MatchedCount == 1 && result.ModifiedCount == 1;
     }
-
-    // ---------------------------------------------------------
-    // DELETE
-    // ---------------------------------------------------------
 
     public async Task<bool> DeleteAsync(string id)
     {
+        if (string.IsNullOrWhiteSpace(id))
+            return false;
+
         if (!ObjectId.TryParse(id, out _))
             return false;
 
         var result = await _orders.DeleteOneAsync(o => o.Id == id);
-        return result.DeletedCount > 0;
+        return result.DeletedCount == 1;
     }
 }

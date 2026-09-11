@@ -17,14 +17,26 @@ public class CouponsController : ControllerBase
         _service = service;
     }
 
+    private bool IsValidObjectId(string? id)
+    {
+        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+    }
+
+    private bool IsAdmin()
+    {
+        return User.IsInRole("Admin");
+    }
+
     // ---------------------------------------------------------
     // GET ALL (Admin)
     // ---------------------------------------------------------
-
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
+        if (!IsAdmin())
+            return Unauthorized("Admin only.");
+
         var coupons = await _service.GetAllAsync();
         return Ok(coupons);
     }
@@ -32,12 +44,19 @@ public class CouponsController : ControllerBase
     // ---------------------------------------------------------
     // CREATE (Admin)
     // ---------------------------------------------------------
-
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     [HttpPost]
-    public async Task<IActionResult> Create(Coupon coupon)
+    public async Task<IActionResult> Create(Coupon? coupon)
     {
-        if (string.IsNullOrWhiteSpace(coupon.Code))
+        if (!IsAdmin())
+            return Unauthorized("Admin only.");
+
+        if (coupon == null)
+            return BadRequest("Invalid coupon data.");
+
+        var code = coupon.Code?.Trim();
+
+        if (string.IsNullOrWhiteSpace(code))
             return BadRequest("Coupon code is required.");
 
         if (coupon.Value <= 0)
@@ -57,15 +76,17 @@ public class CouponsController : ControllerBase
     // ---------------------------------------------------------
     // DELETE (Admin)
     // ---------------------------------------------------------
-
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(string id)
+    public async Task<IActionResult> Delete(string? id)
     {
-        if (!ObjectId.TryParse(id, out _))
+        if (!IsAdmin())
+            return Unauthorized("Admin only.");
+
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid coupon id.");
 
-        var success = await _service.DeleteAsync(id);
+        var success = await _service.DeleteAsync(id!);
         if (!success)
             return NotFound("Coupon not found.");
 
@@ -75,15 +96,17 @@ public class CouponsController : ControllerBase
     // ---------------------------------------------------------
     // VALIDATE (Public)
     // ---------------------------------------------------------
-
     [HttpGet("validate/{code}")]
-    public async Task<IActionResult> Validate(string code)
+    public async Task<IActionResult> Validate(string? code)
     {
         if (string.IsNullOrWhiteSpace(code))
             return BadRequest("Coupon code is required.");
 
-        var coupon = await _service.ValidateAsync(code);
+        var coupon = await _service.ValidateAsync(code.Trim());
         if (coupon == null)
+            return BadRequest("Invalid or expired coupon.");
+
+        if (!coupon.Active || coupon.Expiration <= DateTime.UtcNow)
             return BadRequest("Invalid or expired coupon.");
 
         return Ok(coupon);

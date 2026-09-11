@@ -6,11 +6,13 @@ public interface IProductService
 {
     Task<List<Product>> GetAllAsync();
     Task<Product?> GetByIdAsync(string id);
-    Task<Product> CreateAsync(Product product);
+
+    // Updated to match strict‑validation ProductService
+    Task<Product?> CreateAsync(Product product);
+
     Task<bool> UpdateAsync(Product product);
     Task<bool> DeleteAsync(string id);
 
-    // NEW
     Task<List<Product>> SearchAsync(
         string? keyword,
         string? categoryId,

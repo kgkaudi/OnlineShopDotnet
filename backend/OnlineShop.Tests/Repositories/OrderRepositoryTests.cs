@@ -61,6 +61,20 @@ public class OrderRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsNull()
+    {
+        var result = await _repo.GetByIdAsync(null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsWhitespace()
+    {
+        var result = await _repo.GetByIdAsync("   ");
+        result.Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsInvalid()
     {
         var result = await _repo.GetByIdAsync("invalid-id");
@@ -95,6 +109,20 @@ public class OrderRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
     // GET BY USER ID
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task GetByUserIdAsync_ShouldReturnEmptyList_WhenUserIdIsNull()
+    {
+        var result = await _repo.GetByUserIdAsync(null!);
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetByUserIdAsync_ShouldReturnEmptyList_WhenUserIdIsWhitespace()
+    {
+        var result = await _repo.GetByUserIdAsync("   ");
+        result.Should().BeEmpty();
+    }
 
     [Fact]
     public async Task GetByUserIdAsync_ShouldReturnEmptyList_WhenUserIdIsInvalid()
@@ -139,6 +167,55 @@ public class OrderRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenOrderIsNull()
+    {
+        Func<Task> act = async () => await _repo.CreateAsync(null!);
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenIdIsMissing()
+    {
+        var order = new Order
+        {
+            Id = null!,
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Total = 10
+        };
+
+        Func<Task> act = async () => await _repo.CreateAsync(order);
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenUserIdIsMissing()
+    {
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = null!,
+            Total = 10
+        };
+
+        Func<Task> act = async () => await _repo.CreateAsync(order);
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenTotalIsZeroOrNegative()
+    {
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Total = 0
+        };
+
+        Func<Task> act = async () => await _repo.CreateAsync(order);
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
     public async Task CreateAsync_ShouldInsertOrder()
     {
         var order = new Order
@@ -159,6 +236,41 @@ public class OrderRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenOrderIsNull()
+    {
+        var result = await _repo.UpdateAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsMissing()
+    {
+        var order = new Order
+        {
+            Id = null!,
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Total = 10
+        };
+
+        var result = await _repo.UpdateAsync(order);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsWhitespace()
+    {
+        var order = new Order
+        {
+            Id = "   ",
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Total = 10
+        };
+
+        var result = await _repo.UpdateAsync(order);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsInvalid()
     {
         var order = new Order
@@ -167,6 +279,38 @@ public class OrderRepositoryTests : RepositoryTestBase
             UserId = ObjectId.GenerateNewId().ToString(),
             Total = 10
         };
+
+        var result = await _repo.UpdateAsync(order);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenUserIdIsMissing()
+    {
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = null!,
+            Total = 10
+        };
+
+        var result = await _repo.UpdateAsync(order);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenTotalIsZeroOrNegative()
+    {
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Total = 10
+        };
+
+        await _repo.CreateAsync(order);
+
+        order.Total = 0;
 
         var result = await _repo.UpdateAsync(order);
         result.Should().BeFalse();
@@ -207,9 +351,50 @@ public class OrderRepositoryTests : RepositoryTestBase
         fetched!.Total.Should().Be(200);
     }
 
+    [Fact]
+    public async Task UpdateAsync_ShouldNotAffectOtherOrders()
+    {
+        var o1 = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Total = 10
+        };
+
+        var o2 = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Total = 50
+        };
+
+        await _repo.CreateAsync(o1);
+        await _repo.CreateAsync(o2);
+
+        o1.Total = 999;
+        await _repo.UpdateAsync(o1);
+
+        var fetched2 = await _repo.GetByIdAsync(o2.Id);
+        fetched2!.Total.Should().Be(50);
+    }
+
     // ---------------------------------------------------------
     // DELETE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsNull()
+    {
+        var result = await _repo.DeleteAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsWhitespace()
+    {
+        var result = await _repo.DeleteAsync("   ");
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsInvalid()

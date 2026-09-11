@@ -48,6 +48,32 @@ public class CategoriesControllerTests
         result.Should().BeOfType<OkObjectResult>();
     }
 
+    [Fact]
+    public async Task GetAll_ShouldReturnEmptyList_WhenNoCategories()
+    {
+        var controller = CreateController(new FakeCategoryService());
+
+        var result = await controller.GetAll();
+
+        var list = result.As<OkObjectResult>().Value as List<Category>;
+        list.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAll_ShouldReturnList_WhenCategoriesExist()
+    {
+        var service = new FakeCategoryService();
+        service.AddCategory(ObjectId.GenerateNewId().ToString(), "A");
+        service.AddCategory(ObjectId.GenerateNewId().ToString(), "B");
+
+        var controller = CreateController(service);
+
+        var result = await controller.GetAll();
+
+        var list = result.As<OkObjectResult>().Value as List<Category>;
+        list.Should().HaveCount(2);
+    }
+
     // ---------------------------------------------------------
     // GET BY ID
     // ---------------------------------------------------------
@@ -58,6 +84,16 @@ public class CategoriesControllerTests
         var controller = CreateController(new FakeCategoryService());
 
         var result = await controller.GetById("invalid-id");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetById_ShouldReturnBadRequest_WhenIdNull()
+    {
+        var controller = CreateController(new FakeCategoryService());
+
+        var result = await controller.GetById(null!);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -92,11 +128,41 @@ public class CategoriesControllerTests
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task Create_ShouldReturnUnauthorized_WhenNotAdmin()
+    {
+        var controller = CreateController(new FakeCategoryService(), isAdmin: false);
+
+        var result = await controller.Create(new Category { Name = "X" });
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task Create_ShouldReturnBadRequest_WhenCategoryNull()
+    {
+        var controller = CreateController(new FakeCategoryService(), isAdmin: true);
+
+        var result = await controller.Create(null!);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
     public async Task Create_ShouldReturnBadRequest_WhenNameMissing()
     {
         var controller = CreateController(new FakeCategoryService(), isAdmin: true);
 
         var result = await controller.Create(new Category { Name = "" });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Create_ShouldReturnBadRequest_WhenNameWhitespace()
+    {
+        var controller = CreateController(new FakeCategoryService(), isAdmin: true);
+
+        var result = await controller.Create(new Category { Name = "   " });
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -111,9 +177,32 @@ public class CategoriesControllerTests
         result.Should().BeOfType<CreatedAtActionResult>();
     }
 
+    [Fact]
+    public async Task Create_ShouldReturnCreated_WhenDuplicateName()
+    {
+        var service = new FakeCategoryService();
+        service.AddCategory(ObjectId.GenerateNewId().ToString(), "Dup");
+
+        var controller = CreateController(service, isAdmin: true);
+
+        var result = await controller.Create(new Category { Name = "Dup" });
+
+        result.Should().BeOfType<CreatedAtActionResult>();
+    }
+
     // ---------------------------------------------------------
     // UPDATE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task Update_ShouldReturnUnauthorized_WhenNotAdmin()
+    {
+        var controller = CreateController(new FakeCategoryService(), isAdmin: false);
+
+        var result = await controller.Update(ObjectId.GenerateNewId().ToString(), new Category { Name = "X" });
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
 
     [Fact]
     public async Task Update_ShouldReturnBadRequest_WhenIdInvalid()
@@ -121,6 +210,16 @@ public class CategoriesControllerTests
         var controller = CreateController(new FakeCategoryService(), isAdmin: true);
 
         var result = await controller.Update("invalid-id", new Category { Name = "Test" });
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Update_ShouldReturnBadRequest_WhenCategoryNull()
+    {
+        var controller = CreateController(new FakeCategoryService(), isAdmin: true);
+
+        var result = await controller.Update(ObjectId.GenerateNewId().ToString(), null!);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -161,9 +260,35 @@ public class CategoriesControllerTests
         result.Should().BeOfType<NoContentResult>();
     }
 
+    [Fact]
+    public async Task Update_ShouldReturnNotFound_WhenUpdatingTwice()
+    {
+        var service = new FakeCategoryService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddCategory(id, "Old");
+
+        var controller = CreateController(service, isAdmin: true);
+
+        var first = await controller.Update(id, new Category { Name = "Updated" });
+        var second = await controller.Update(id, new Category { Name = "UpdatedAgain" });
+
+        first.Should().BeOfType<NoContentResult>();
+        second.Should().BeOfType<NotFoundObjectResult>();
+    }
+
     // ---------------------------------------------------------
     // DELETE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task Delete_ShouldReturnUnauthorized_WhenNotAdmin()
+    {
+        var controller = CreateController(new FakeCategoryService(), isAdmin: false);
+
+        var result = await controller.Delete(ObjectId.GenerateNewId().ToString());
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
 
     [Fact]
     public async Task Delete_ShouldReturnBadRequest_WhenIdInvalid()
@@ -199,6 +324,22 @@ public class CategoriesControllerTests
 
         result.Should().BeOfType<NoContentResult>();
     }
+
+    [Fact]
+    public async Task Delete_ShouldReturnNotFound_WhenDeletingTwice()
+    {
+        var service = new FakeCategoryService();
+        var id = ObjectId.GenerateNewId().ToString();
+        service.AddCategory(id, "ToDelete");
+
+        var controller = CreateController(service, isAdmin: true);
+
+        var first = await controller.Delete(id);
+        var second = await controller.Delete(id);
+
+        first.Should().BeOfType<NoContentResult>();
+        second.Should().BeOfType<NotFoundObjectResult>();
+    }
 }
 
 // ---------------------------------------------------------
@@ -222,6 +363,9 @@ public class FakeCategoryService : ICategoryService
 
     public Task<Category?> CreateAsync(string name)
     {
+        if (string.IsNullOrWhiteSpace(name))
+            return Task.FromResult<Category?>(null);
+
         var id = ObjectId.GenerateNewId().ToString();
         var cat = new Category { Id = id, Name = name };
         _store[id] = cat;
@@ -238,7 +382,5 @@ public class FakeCategoryService : ICategoryService
     }
 
     public Task<bool> DeleteAsync(string id)
-    {
-        return Task.FromResult(_store.Remove(id));
-    }
+        => Task.FromResult(_store.Remove(id));
 }

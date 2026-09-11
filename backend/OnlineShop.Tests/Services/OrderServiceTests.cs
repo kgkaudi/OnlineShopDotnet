@@ -28,8 +28,15 @@ public class OrderServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // GET ALL
+    // GET ALL — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task GetAllAsync_ShouldReturnEmptyList_WhenNoOrders()
+    {
+        var result = await _service.GetAllAsync(true, "ignored");
+        result.Should().BeEmpty();
+    }
 
     [Fact]
     public async Task GetAllAsync_ShouldReturnAllOrders_ForAdmin()
@@ -60,9 +67,44 @@ public class OrderServiceTests : RepositoryTestBase
         result[0].UserId.Should().Be(userId);
     }
 
+    [Fact]
+    public async Task GetAllAsync_ShouldReturnEmptyList_WhenUserIdInvalid()
+    {
+        var result = await _service.GetAllAsync(false, "invalid-id");
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ShouldReturnEmptyList_WhenUserIdNull()
+    {
+        var result = await _service.GetAllAsync(false, null!);
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ShouldReturnEmptyList_WhenUserIdWhitespace()
+    {
+        var result = await _service.GetAllAsync(false, "   ");
+        result.Should().BeEmpty();
+    }
+
     // ---------------------------------------------------------
-    // GET BY ID
+    // GET BY ID — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdNull()
+    {
+        var result = await _service.GetByIdAsync(null!, true, "ignored");
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdWhitespace()
+    {
+        var result = await _service.GetByIdAsync("   ", true, "ignored");
+        result.Should().BeNull();
+    }
 
     [Fact]
     public async Task GetByIdAsync_ShouldReturnNull_WhenIdInvalid()
@@ -107,8 +149,36 @@ public class OrderServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // CREATE
+    // CREATE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenOrderIsNull()
+    {
+        var result = await _service.CreateAsync(null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenUserIdNull()
+    {
+        var result = await _service.CreateAsync(new Order { UserId = null! });
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenUserIdWhitespace()
+    {
+        var result = await _service.CreateAsync(new Order { UserId = "   " });
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldReturnNull_WhenUserIdInvalid()
+    {
+        var result = await _service.CreateAsync(new Order { UserId = "invalid-id" });
+        result.Should().BeNull();
+    }
 
     [Fact]
     public async Task CreateAsync_ShouldGenerateId_WhenMissing()
@@ -119,18 +189,41 @@ public class OrderServiceTests : RepositoryTestBase
 
         var created = await _service.CreateAsync(order);
 
-        created.Id.Should().NotBeNull();
+        created.Should().NotBeNull();
+        created!.Id.Should().NotBeNull();
     }
 
     // ---------------------------------------------------------
-    // UPDATE
+    // UPDATE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenOrderIsNull()
+    {
+        var result = await _service.UpdateAsync(null!, true, "ignored");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdNull()
+    {
+        var order = new Order { Id = null!, UserId = ObjectId.GenerateNewId().ToString() };
+        var result = await _service.UpdateAsync(order, true, "ignored");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdWhitespace()
+    {
+        var order = new Order { Id = "   ", UserId = ObjectId.GenerateNewId().ToString() };
+        var result = await _service.UpdateAsync(order, true, "ignored");
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenIdInvalid()
     {
         var userId = ObjectId.GenerateNewId().ToString();
-
         var order = new Order { Id = "invalid-id", UserId = userId };
 
         var result = await _service.UpdateAsync(order, true, "ignored");
@@ -141,7 +234,6 @@ public class OrderServiceTests : RepositoryTestBase
     public async Task UpdateAsync_ShouldReturnFalse_WhenOrderNotFound()
     {
         var userId = ObjectId.GenerateNewId().ToString();
-
         var order = new Order { Id = ObjectId.GenerateNewId().ToString(), UserId = userId };
 
         var result = await _service.UpdateAsync(order, true, "ignored");
@@ -190,8 +282,22 @@ public class OrderServiceTests : RepositoryTestBase
     }
 
     // ---------------------------------------------------------
-    // DELETE
+    // DELETE — EDGE CASES
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdNull()
+    {
+        var result = await _service.DeleteAsync(null!, true, "ignored");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdWhitespace()
+    {
+        var result = await _service.DeleteAsync("   ", true, "ignored");
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task DeleteAsync_ShouldReturnFalse_WhenIdInvalid()

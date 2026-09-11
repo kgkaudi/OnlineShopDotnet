@@ -26,7 +26,6 @@ public class AuthControllerTests : RepositoryTestBase
 
         _userRepo = new UserRepository(dbConfig);
 
-        // JWT configuration for tests
         var jwtConfig = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -38,10 +37,7 @@ public class AuthControllerTests : RepositoryTestBase
             .Build();
 
         _jwtService = new JwtService(jwtConfig);
-
-        // AuthService now requires (IConfiguration, IJwtService, IUserRepository)
         _authService = new AuthService(jwtConfig, _jwtService, _userRepo);
-
         _controller = new AuthController(_authService, _jwtService);
 
         Fixture.Database.DropCollection("Users");
@@ -50,6 +46,13 @@ public class AuthControllerTests : RepositoryTestBase
     // ---------------------------------------------------------
     // REGISTER
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task Register_ShouldReturnBadRequest_WhenDtoNull()
+    {
+        var result = await _controller.Register(null!);
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
 
     [Fact]
     public async Task Register_ShouldReturnBadRequest_WhenEmailMissing()
@@ -62,7 +65,20 @@ public class AuthControllerTests : RepositoryTestBase
         };
 
         var result = await _controller.Register(dto);
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
 
+    [Fact]
+    public async Task Register_ShouldReturnBadRequest_WhenEmailWhitespace()
+    {
+        var dto = new RegisterDto
+        {
+            Email = "   ",
+            Password = "pass123",
+            FullName = "Test User"
+        };
+
+        var result = await _controller.Register(dto);
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
@@ -77,7 +93,6 @@ public class AuthControllerTests : RepositoryTestBase
         };
 
         var result = await _controller.Register(dto);
-
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
@@ -92,7 +107,6 @@ public class AuthControllerTests : RepositoryTestBase
         };
 
         var result = await _controller.Register(dto);
-
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
@@ -107,7 +121,20 @@ public class AuthControllerTests : RepositoryTestBase
         };
 
         var result = await _controller.Register(dto);
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
 
+    [Fact]
+    public async Task Register_ShouldReturnBadRequest_WhenPasswordTooShort()
+    {
+        var dto = new RegisterDto
+        {
+            Email = "test@example.com",
+            Password = "12",
+            FullName = "Test User"
+        };
+
+        var result = await _controller.Register(dto);
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
@@ -133,7 +160,6 @@ public class AuthControllerTests : RepositoryTestBase
         };
 
         var result = await _controller.Register(dto);
-
         result.Should().BeOfType<ConflictObjectResult>();
     }
 
@@ -148,13 +174,57 @@ public class AuthControllerTests : RepositoryTestBase
         };
 
         var result = await _controller.Register(dto);
-
         result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task Register_ShouldReturnOk_WhenEmailHasSpacesAround()
+    {
+        var dto = new RegisterDto
+        {
+            Email = "   spaced@example.com   ",
+            Password = "pass123",
+            FullName = "User"
+        };
+
+        var result = await _controller.Register(dto);
+        result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task Register_ShouldReturnOk_WhenRegisteringTwiceDifferentEmails()
+    {
+        var dto1 = new RegisterDto
+        {
+            Email = "first@example.com",
+            Password = "pass123",
+            FullName = "User1"
+        };
+
+        var dto2 = new RegisterDto
+        {
+            Email = "second@example.com",
+            Password = "pass123",
+            FullName = "User2"
+        };
+
+        var r1 = await _controller.Register(dto1);
+        var r2 = await _controller.Register(dto2);
+
+        r1.Should().BeOfType<OkObjectResult>();
+        r2.Should().BeOfType<OkObjectResult>();
     }
 
     // ---------------------------------------------------------
     // LOGIN
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task Login_ShouldReturnBadRequest_WhenDtoNull()
+    {
+        var result = await _controller.Login(null!);
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
 
     [Fact]
     public async Task Login_ShouldReturnBadRequest_WhenEmailMissing()
@@ -166,7 +236,6 @@ public class AuthControllerTests : RepositoryTestBase
         };
 
         var result = await _controller.Login(dto);
-
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
@@ -180,7 +249,6 @@ public class AuthControllerTests : RepositoryTestBase
         };
 
         var result = await _controller.Login(dto);
-
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
@@ -194,7 +262,6 @@ public class AuthControllerTests : RepositoryTestBase
         };
 
         var result = await _controller.Login(dto);
-
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
@@ -208,14 +275,25 @@ public class AuthControllerTests : RepositoryTestBase
         };
 
         var result = await _controller.Login(dto);
-
         result.Should().BeOfType<UnauthorizedObjectResult>();
     }
 
     [Fact]
-    public async Task Login_ShouldReturnOk_WhenValid()
+    public async Task Login_ShouldReturnUnauthorized_WhenUserDoesNotExist()
     {
-        // Register user first
+        var dto = new LoginDto
+        {
+            Email = "notfound@example.com",
+            Password = "pass123"
+        };
+
+        var result = await _controller.Login(dto);
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task Login_ShouldReturnUnauthorized_WhenWrongPassword()
+    {
         var registerDto = new RegisterDto
         {
             Email = "valid@example.com",
@@ -225,7 +303,28 @@ public class AuthControllerTests : RepositoryTestBase
 
         await _controller.Register(registerDto);
 
-        // Login
+        var loginDto = new LoginDto
+        {
+            Email = "valid@example.com",
+            Password = "wrongpass"
+        };
+
+        var result = await _controller.Login(loginDto);
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task Login_ShouldReturnOk_WhenValid()
+    {
+        var registerDto = new RegisterDto
+        {
+            Email = "valid@example.com",
+            Password = "pass123",
+            FullName = "Valid User"
+        };
+
+        await _controller.Register(registerDto);
+
         var loginDto = new LoginDto
         {
             Email = "valid@example.com",
@@ -233,7 +332,28 @@ public class AuthControllerTests : RepositoryTestBase
         };
 
         var result = await _controller.Login(loginDto);
+        result.Should().BeOfType<OkObjectResult>();
+    }
 
+    [Fact]
+    public async Task Login_ShouldReturnOk_WhenEmailHasSpacesAround()
+    {
+        var registerDto = new RegisterDto
+        {
+            Email = "trim@example.com",
+            Password = "pass123",
+            FullName = "Trim User"
+        };
+
+        await _controller.Register(registerDto);
+
+        var loginDto = new LoginDto
+        {
+            Email = "   trim@example.com   ",
+            Password = "pass123"
+        };
+
+        var result = await _controller.Login(loginDto);
         result.Should().BeOfType<OkObjectResult>();
     }
 }

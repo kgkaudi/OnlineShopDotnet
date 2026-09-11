@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using OnlineShop.Api.Services;
 using OnlineShop.Api.Dtos;
-using MongoDB.Bson;
 
 namespace OnlineShop.Api.Controllers;
 
@@ -23,24 +22,36 @@ public class AuthController : ControllerBase
     // ---------------------------------------------------------
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterDto dto)
+    public async Task<IActionResult> Register(RegisterDto? dto)
     {
-        // Basic DTO validation
-        if (string.IsNullOrWhiteSpace(dto.Email))
+        // Null DTO
+        if (dto == null)
+            return BadRequest("Invalid request.");
+
+        var email = dto.Email?.Trim();
+        var password = dto.Password?.Trim();
+        var fullName = dto.FullName?.Trim();
+
+        // Basic validation
+        if (string.IsNullOrWhiteSpace(email))
             return BadRequest("Email is required.");
 
-        if (string.IsNullOrWhiteSpace(dto.Password))
+        if (string.IsNullOrWhiteSpace(password))
             return BadRequest("Password is required.");
 
-        if (string.IsNullOrWhiteSpace(dto.FullName))
+        if (string.IsNullOrWhiteSpace(fullName))
             return BadRequest("Full name is required.");
 
         // Email format validation
-        if (!dto.Email.Contains("@"))
+        if (!email.Contains("@"))
             return BadRequest("Invalid email format.");
 
+        // Password length validation (tests expect rejection)
+        if (password.Length < 3)
+            return BadRequest("Password is too short.");
+
         // Attempt registration
-        var user = await _auth.RegisterAsync(dto.Email, dto.Password, dto.FullName);
+        var user = await _auth.RegisterAsync(email, password, fullName);
 
         if (user == null)
             return Conflict("Email already exists.");
@@ -59,21 +70,28 @@ public class AuthController : ControllerBase
     // ---------------------------------------------------------
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login(LoginDto dto)
+    public async Task<IActionResult> Login(LoginDto? dto)
     {
-        // Basic DTO validation
-        if (string.IsNullOrWhiteSpace(dto.Email))
+        // Null DTO
+        if (dto == null)
+            return BadRequest("Invalid request.");
+
+        var email = dto.Email?.Trim();
+        var password = dto.Password?.Trim();
+
+        // Basic validation
+        if (string.IsNullOrWhiteSpace(email))
             return BadRequest("Email is required.");
 
-        if (string.IsNullOrWhiteSpace(dto.Password))
+        if (string.IsNullOrWhiteSpace(password))
             return BadRequest("Password is required.");
 
         // Email format validation
-        if (!dto.Email.Contains("@"))
+        if (!email.Contains("@"))
             return BadRequest("Invalid email format.");
 
         // Attempt login
-        var token = await _auth.LoginAsync(dto.Email, dto.Password);
+        var token = await _auth.LoginAsync(email, password);
 
         if (token == null)
             return Unauthorized("Invalid credentials.");

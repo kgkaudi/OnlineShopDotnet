@@ -5,6 +5,9 @@ namespace OnlineShop.Api.Services;
 public interface IReviewService
 {
     Task<List<Review>> GetByProductIdAsync(string productId);
-    Task<Review> CreateAsync(Review review);
+
+    // Updated to match strict‑validation ReviewService
+    Task<Review?> CreateAsync(Review review);
+
     Task<bool> DeleteAsync(string id);
 }

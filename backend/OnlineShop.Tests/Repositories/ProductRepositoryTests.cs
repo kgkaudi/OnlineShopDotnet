@@ -1,4 +1,6 @@
 using FluentAssertions;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using OnlineShop.Api.Models;
 using OnlineShop.Api.Repositories;
 using Xunit;
@@ -6,6 +8,7 @@ using Xunit;
 public class ProductRepositoryTests : RepositoryTestBase
 {
     private readonly ProductRepository _repo;
+    private readonly IMongoCollection<Product> _products;
 
     public ProductRepositoryTests(MongoTestFixture fixture)
         : base(fixture)
@@ -16,11 +19,39 @@ public class ProductRepositoryTests : RepositoryTestBase
         );
 
         _repo = new ProductRepository(config);
+        _products = Fixture.Database.GetCollection<Product>("Products");
+
+        Fixture.Database.DropCollection("Products");
     }
 
     // ---------------------------------------------------------
     // CREATE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenProductIsNull()
+    {
+        Func<Task> act = async () => await _repo.CreateAsync(null!);
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenNameIsMissing()
+    {
+        var product = new Product { Name = null!, Price = 10 };
+
+        Func<Task> act = async () => await _repo.CreateAsync(product);
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenPriceIsZeroOrNegative()
+    {
+        var product = new Product { Name = "X", Price = 0 };
+
+        Func<Task> act = async () => await _repo.CreateAsync(product);
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+    }
 
     [Fact]
     public async Task CreateAsync_ShouldInsertProduct()
@@ -62,9 +93,30 @@ public class ProductRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsNull()
+    {
+        var result = await _repo.GetByIdAsync(null!);
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsWhitespace()
+    {
+        var result = await _repo.GetByIdAsync("   ");
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsInvalid()
+    {
+        var result = await _repo.GetByIdAsync("invalid-id");
+        result.Should().BeNull();
+    }
+
+    [Fact]
     public async Task GetByIdAsync_ShouldReturnNull_WhenNotFound()
     {
-        var result = await _repo.GetByIdAsync("non-existing-id");
+        var result = await _repo.GetByIdAsync(ObjectId.GenerateNewId().ToString());
         result.Should().BeNull();
     }
 
@@ -94,6 +146,69 @@ public class ProductRepositoryTests : RepositoryTestBase
     // ---------------------------------------------------------
 
     [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenProductIsNull()
+    {
+        var result = await _repo.UpdateAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsMissing()
+    {
+        var product = new Product { Id = null!, Name = "X", Price = 1 };
+        var result = await _repo.UpdateAsync(product);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsWhitespace()
+    {
+        var product = new Product { Id = "   ", Name = "X", Price = 1 };
+        var result = await _repo.UpdateAsync(product);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsInvalid()
+    {
+        var product = new Product { Id = "invalid-id", Name = "X", Price = 1 };
+        var result = await _repo.UpdateAsync(product);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenNameIsMissing()
+    {
+        var product = new Product { Name = "Old", Price = 1 };
+        await _repo.CreateAsync(product);
+
+        product.Name = null!;
+        var result = await _repo.UpdateAsync(product);
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenPriceIsZeroOrNegative()
+    {
+        var product = new Product { Name = "Old", Price = 1 };
+        await _repo.CreateAsync(product);
+
+        product.Price = 0;
+        var result = await _repo.UpdateAsync(product);
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldReturnFalse_WhenProductDoesNotExist()
+    {
+        var product = new Product { Id = ObjectId.GenerateNewId().ToString(), Name = "X", Price = 1 };
+        var result = await _repo.UpdateAsync(product);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task UpdateAsync_ShouldUpdateExistingProduct()
     {
         var product = new Product { Name = "Old", Price = 1 };
@@ -109,17 +224,53 @@ public class ProductRepositoryTests : RepositoryTestBase
     }
 
     [Fact]
-    public async Task UpdateAsync_ShouldReturnFalse_WhenProductDoesNotExist()
+    public async Task UpdateAsync_ShouldNotAffectOtherProducts()
     {
-        var product = new Product { Id = "missing", Name = "X", Price = 1 };
+        var p1 = new Product { Name = "A", Price = 1 };
+        var p2 = new Product { Name = "B", Price = 2 };
 
-        var result = await _repo.UpdateAsync(product);
-        result.Should().BeFalse();
+        await _repo.CreateAsync(p1);
+        await _repo.CreateAsync(p2);
+
+        p1.Name = "Updated A";
+        await _repo.UpdateAsync(p1);
+
+        var fetched2 = await _repo.GetByIdAsync(p2.Id);
+        fetched2!.Name.Should().Be("B");
     }
 
     // ---------------------------------------------------------
     // DELETE
     // ---------------------------------------------------------
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsNull()
+    {
+        var result = await _repo.DeleteAsync(null!);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsWhitespace()
+    {
+        var result = await _repo.DeleteAsync("   ");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsInvalid()
+    {
+        var result = await _repo.DeleteAsync("invalid-id");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenProductDoesNotExist()
+    {
+        var id = ObjectId.GenerateNewId().ToString();
+        var result = await _repo.DeleteAsync(id);
+        result.Should().BeFalse();
+    }
 
     [Fact]
     public async Task DeleteAsync_ShouldDeleteExistingProduct()
@@ -132,13 +283,6 @@ public class ProductRepositoryTests : RepositoryTestBase
 
         var fetched = await _repo.GetByIdAsync(product.Id);
         fetched.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task DeleteAsync_ShouldReturnFalse_WhenProductDoesNotExist()
-    {
-        var result = await _repo.DeleteAsync("missing-id");
-        result.Should().BeFalse();
     }
 
     // ---------------------------------------------------------
