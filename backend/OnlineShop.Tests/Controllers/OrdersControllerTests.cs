@@ -224,7 +224,7 @@ public class OrdersControllerTests
         var userId = ObjectId.GenerateNewId().ToString();
         var controller = CreateController(new FakeOrderService(), userId);
 
-        var result = await controller.Update(ObjectId.GenerateNewId().ToString(), new Order());
+        var result = await controller.Update(ObjectId.GenerateNewId().ToString(), new Order { UserId = userId });
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
@@ -238,7 +238,7 @@ public class OrdersControllerTests
 
         var controller = CreateController(service, ObjectId.GenerateNewId().ToString());
 
-        var result = await controller.Update(orderId, new Order());
+        var result = await controller.Update(orderId, new Order { UserId = ObjectId.GenerateNewId().ToString() });
 
         result.Should().BeOfType<ForbidResult>();
     }
@@ -253,7 +253,16 @@ public class OrdersControllerTests
 
         var controller = CreateController(service, userId);
 
-        var result = await controller.Update(orderId, new Order());
+        var result = await controller.Update(orderId, new Order { UserId = userId,
+                Items = new List<OrderItem>
+                {
+                    new OrderItem
+                    {
+                        ProductId = "p1",
+                        Quantity = 2
+                    }
+                }
+            });
 
         result.Should().BeOfType<OkObjectResult>();
     }
@@ -268,11 +277,34 @@ public class OrdersControllerTests
 
         var controller = CreateController(service, userId);
 
-        var first = await controller.Update(orderId, new Order());
-        await controller.Delete(orderId);
-        var second = await controller.Update(orderId, new Order());
+        var validOrder = new Order
+        {
+            UserId = userId,
+            Items = new List<OrderItem>
+            {
+                new OrderItem
+                {
+                    ProductId = "p1",
+                    Quantity = 1
+                }
+            }
+        };
+
+        var first = await controller.Update(
+            orderId,
+            validOrder);
+
+        var deleteResult = await controller.Delete(orderId);
+
+        var second = await controller.Update(
+            orderId,
+            new Order
+            {
+                UserId = userId
+            });
 
         first.Should().BeOfType<OkObjectResult>();
+        deleteResult.Should().BeOfType<OkObjectResult>();
         second.Should().BeOfType<NotFoundObjectResult>();
     }
 
@@ -408,7 +440,9 @@ public class FakeOrderService : IOrderService
     public Task<bool> UpdateAsync(Order order, bool isAdmin, string userId)
     {
         if (order == null || string.IsNullOrWhiteSpace(order.Id))
+        {
             return Task.FromResult(false);
+        }
 
         if (!_orders.ContainsKey(order.Id))
             return Task.FromResult(false);
@@ -416,6 +450,9 @@ public class FakeOrderService : IOrderService
         var existing = _orders[order.Id];
 
         if (!isAdmin && existing.UserId != userId)
+            return Task.FromResult(false);
+
+        if (order.UserId != existing.UserId)
             return Task.FromResult(false);
 
         _orders[order.Id] = order;
