@@ -11,9 +11,9 @@ export default function Header() {
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const setLoggedIn = useAuthStore((state) => state.setLoggedIn);
   const [hydrated, setHydrated] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    // Mark hydration complete
     setHydrated(true);
   }, []);
 
@@ -29,13 +29,15 @@ export default function Header() {
   }
 
   return (
-    <header className="border-b bg-white">
+    <header className="border-b bg-white sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        {/* Logo */}
         <Link href="/" className="text-xl font-bold">
           OnlineShop
         </Link>
 
-        <nav className="flex items-center gap-6 text-sm">
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-6 text-sm">
           <Link href="/products" className="text-black hover:underline">
             Products
           </Link>
@@ -46,7 +48,6 @@ export default function Header() {
             Wishlist
           </Link>
 
-          {/* Render login/logout only after hydration */}
           {hydrated && (
             <>
               {!isLoggedIn && (
@@ -66,6 +67,70 @@ export default function Header() {
             </>
           )}
         </nav>
+
+        {/* Mobile Hamburger */}
+        <button
+          className="md:hidden p-2 border rounded"
+          onClick={() => setMenuOpen(true)}
+        >
+          <span className="text-xl">☰</span>
+        </button>
+      </div>
+
+      {/* Mobile Menu Overlay */}
+      {menuOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile Slide-in Menu */}
+      <div
+        className={`fixed top-0 right-0 w-64 h-full bg-white shadow-lg z-50 transform transition-transform duration-300 ease-out ${
+          menuOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="p-6 flex flex-col space-y-4 text-lg"> {/* ✅ vertical layout */}
+          <Link href="/" onClick={() => setMenuOpen(false)} className="block">
+            Home
+          </Link>
+          <Link href="/products" onClick={() => setMenuOpen(false)} className="block">
+            Products
+          </Link>
+          <Link href="/cart" onClick={() => setMenuOpen(false)} className="block">
+            Cart
+          </Link>
+          <Link href="/wishlist" onClick={() => setMenuOpen(false)} className="block">
+            Wishlist
+          </Link>
+
+          {hydrated && (
+            <>
+              {!isLoggedIn && (
+                <Link
+                  href="/auth/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="block"
+                >
+                  Login
+                </Link>
+              )}
+
+              {isLoggedIn && (
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setMenuOpen(false);
+                  }}
+                  className="text-left w-full"
+                >
+                  Logout
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

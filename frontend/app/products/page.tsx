@@ -34,7 +34,7 @@ export default function ProductsPage() {
         return;
       }
 
-      showSnackbar("Added to wishlist!", "success");
+      showSnackbar("Added to wishlist ❤️", "success");
     } catch (err) {
       console.error(err);
       showSnackbar("Something went wrong while adding to wishlist.", "error");
@@ -64,7 +64,7 @@ export default function ProductsPage() {
       )}
 
       {!loading && !error && products.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map((product) => (
             <div
               key={product.id}
@@ -74,13 +74,13 @@ export default function ProductsPage() {
               <p className="text-gray-600 mt-1">{product.description}</p>
               <p className="text-black font-bold mt-3">{product.price} €</p>
 
-              <button className="mt-4 w-full bg-black text-white py-2 rounded">
+              <button className="mt-4 w-full bg-black text-white py-3 rounded text-sm sm:text-base">
                 Add to Cart
               </button>
 
               <button
                 onClick={() => addToWishlist(product.id)}
-                className="mt-2 w-full border border-gray-300 py-2 rounded hover:bg-gray-100"
+                className="mt-2 w-full border border-gray-300 py-3 rounded text-sm sm:text-base hover:bg-gray-100"
               >
                 ❤️ Add to Wishlist
               </button>
