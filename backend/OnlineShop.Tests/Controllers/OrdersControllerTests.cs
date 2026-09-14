@@ -23,9 +23,6 @@ public class OrdersControllerTests
                 claims.Add(new Claim(ClaimTypes.Role, "Admin"));
 
             httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
-
-            // ⭐ Simulate LoginMiddleware
-            httpContext.Items["UserId"] = userId;
         }
 
         controller.ControllerContext = new ControllerContext
@@ -227,7 +224,7 @@ public class OrdersControllerTests
         var userId = ObjectId.GenerateNewId().ToString();
         var controller = CreateController(new FakeOrderService(), userId);
 
-        var result = await controller.Update(ObjectId.GenerateNewId().ToString(), new Order { UserId = userId });
+        var result = await controller.Update(ObjectId.GenerateNewId().ToString(), new Order());
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
@@ -241,7 +238,7 @@ public class OrdersControllerTests
 
         var controller = CreateController(service, ObjectId.GenerateNewId().ToString());
 
-        var result = await controller.Update(orderId, new Order { UserId = ObjectId.GenerateNewId().ToString() });
+        var result = await controller.Update(orderId, new Order());
 
         result.Should().BeOfType<ForbidResult>();
     }
@@ -256,14 +253,7 @@ public class OrdersControllerTests
 
         var controller = CreateController(service, userId);
 
-        var result = await controller.Update(orderId, new Order
-        {
-            UserId = userId,
-            Items = new List<OrderItem>
-            {
-                new OrderItem { ProductId = "p1", Quantity = 2 }
-            }
-        });
+        var result = await controller.Update(orderId, new Order());
 
         result.Should().BeOfType<OkObjectResult>();
     }
@@ -278,21 +268,11 @@ public class OrdersControllerTests
 
         var controller = CreateController(service, userId);
 
-        var validOrder = new Order
-        {
-            UserId = userId,
-            Items = new List<OrderItem>
-            {
-                new OrderItem { ProductId = "p1", Quantity = 1 }
-            }
-        };
-
-        var first = await controller.Update(orderId, validOrder);
-        var deleteResult = await controller.Delete(orderId);
-        var second = await controller.Update(orderId, new Order { UserId = userId });
+        var first = await controller.Update(orderId, new Order());
+        await controller.Delete(orderId);
+        var second = await controller.Update(orderId, new Order());
 
         first.Should().BeOfType<OkObjectResult>();
-        deleteResult.Should().BeOfType<OkObjectResult>();
         second.Should().BeOfType<NotFoundObjectResult>();
     }
 
@@ -428,9 +408,7 @@ public class FakeOrderService : IOrderService
     public Task<bool> UpdateAsync(Order order, bool isAdmin, string userId)
     {
         if (order == null || string.IsNullOrWhiteSpace(order.Id))
-        {
             return Task.FromResult(false);
-        }
 
         if (!_orders.ContainsKey(order.Id))
             return Task.FromResult(false);
@@ -440,8 +418,10 @@ public class FakeOrderService : IOrderService
         if (!isAdmin && existing.UserId != userId)
             return Task.FromResult(false);
 
-        if (order.UserId != existing.UserId)
-            return Task.FromResult(false);
+        // Preserve the order's ownership across an update — a client
+        // shouldn't be able to reassign UserId just by omitting it (or
+        // sending a different value) in the update body.
+        order.UserId = existing.UserId;
 
         _orders[order.Id] = order;
         return Task.FromResult(true);

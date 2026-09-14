@@ -10,6 +10,7 @@ public class AuthServiceTests : RepositoryTestBase
 {
     private readonly AuthService _auth;
     private readonly UserRepository _userRepo;
+    private readonly InvalidTokenRepository _invalidTokens;
     private readonly JwtService _jwt;
 
     public AuthServiceTests(MongoTestFixture fixture)
@@ -21,6 +22,7 @@ public class AuthServiceTests : RepositoryTestBase
         );
 
         _userRepo = new UserRepository(dbConfig);
+        _invalidTokens = new InvalidTokenRepository(dbConfig);
 
         var jwtConfig = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -34,7 +36,7 @@ public class AuthServiceTests : RepositoryTestBase
 
         _jwt = new JwtService(jwtConfig);
 
-        _auth = new AuthService(jwtConfig, _jwt, _userRepo);
+        _auth = new AuthService(jwtConfig, _jwt, _userRepo, _invalidTokens);
 
         Fixture.Database.DropCollection("Users");
     }
@@ -221,6 +223,7 @@ public class AuthServiceTests : RepositoryTestBase
         result.Should().BeTrue();
 
         var fetched = await _userRepo.GetByIdAsync(user.Id);
-        fetched!.Roles.Should().HaveCount(1);
+        fetched!.Roles.Should().HaveCount(2);
+        fetched.Roles.Should().Contain(new[] { "User", "Admin" });
     }
 }

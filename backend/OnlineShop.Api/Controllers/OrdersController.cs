@@ -17,14 +17,12 @@ public class OrdersController : ControllerBase
         _service = service;
     }
 
-    private string? ResolveUserId()
+    private string? GetUserId()
     {
-        // Middleware first, fallback to claims (for tests)
-        return HttpContext.Items["UserId"] as string
-               ?? User.FindFirst("sub")?.Value;
+        return User.FindFirst("sub")?.Value?.Trim();
     }
 
-    private bool IsValid(string? id)
+    private bool IsValidObjectId(string? id)
     {
         return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
     }
@@ -36,8 +34,8 @@ public class OrdersController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var userId = ResolveUserId();
-        if (!IsValid(userId))
+        var userId = GetUserId();
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
         var isAdmin = User.IsInRole("Admin");
@@ -53,21 +51,25 @@ public class OrdersController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string? id)
     {
-        var userId = ResolveUserId();
-        if (!IsValid(userId))
+        var userId = GetUserId();
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!IsValid(id))
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid order id.");
 
         var isAdmin = User.IsInRole("Admin");
 
-        // Fetch with admin visibility so we can distinguish NotFound vs Forbid
+        // Fetch with admin visibility so we can tell "doesn't exist" (NotFound)
+        // apart from "exists but isn't yours" (Forbid) — the service itself
+        // hides other users' orders by returning null for both cases.
         var order = await _service.GetByIdAsync(id!, true, userId!);
 
+        // Tests expect NotFound when order does not exist
         if (order == null)
             return NotFound("Order not found.");
 
+        // Tests expect Forbid when order exists but user is not allowed
         if (!isAdmin && order.UserId != userId)
             return Forbid();
 
@@ -81,8 +83,8 @@ public class OrdersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(Order? order)
     {
-        var userId = ResolveUserId();
-        if (!IsValid(userId))
+        var userId = GetUserId();
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
         if (order == null)
@@ -95,9 +97,6 @@ public class OrdersController : ControllerBase
         order.CreatedAt = DateTime.UtcNow;
 
         var created = await _service.CreateAsync(order);
-        if (created is null)
-            return StatusCode(500, "Failed to create order.");
-
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
@@ -108,11 +107,11 @@ public class OrdersController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string? id, Order? order)
     {
-        var userId = ResolveUserId();
-        if (!IsValid(userId))
+        var userId = GetUserId();
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!IsValid(id))
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid order id.");
 
         if (order == null)
@@ -124,6 +123,7 @@ public class OrdersController : ControllerBase
 
         var success = await _service.UpdateAsync(order, isAdmin, userId!);
 
+        // Tests expect NotFound when order does not exist
         if (!success)
         {
             var exists = await _service.GetByIdAsync(id!, true, userId!);
@@ -143,17 +143,18 @@ public class OrdersController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string? id)
     {
-        var userId = ResolveUserId();
-        if (!IsValid(userId))
+        var userId = GetUserId();
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!IsValid(id))
+        if (!IsValidObjectId(id))
             return BadRequest("Invalid order id.");
 
         var isAdmin = User.IsInRole("Admin");
 
         var success = await _service.DeleteAsync(id!, isAdmin, userId!);
 
+        // Tests expect NotFound when order does not exist
         if (!success)
         {
             var exists = await _service.GetByIdAsync(id!, true, userId!);

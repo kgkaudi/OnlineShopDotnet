@@ -4,12 +4,19 @@ using OnlineShop.Api.Middleware;
 using Xunit;
 using System.Security.Claims;
 using MongoDB.Bson;
+using Moq;
+using OnlineShop.Api.Repositories;
 
 public class LoginMiddlewareTests
 {
     private static DefaultHttpContext CreateContext()
     {
         return new DefaultHttpContext();
+    }
+
+    private static IInvalidTokenRepository MockInvalidTokens()
+    {
+        return new Mock<IInvalidTokenRepository>().Object;
     }
 
     [Fact]
@@ -29,7 +36,7 @@ public class LoginMiddlewareTests
             return Task.CompletedTask;
         });
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, MockInvalidTokens());
 
         called.Should().BeTrue();
         context.Items["UserId"].Should().Be(userId);
@@ -47,7 +54,7 @@ public class LoginMiddlewareTests
 
         var middleware = new LoginMiddleware(_ => Task.CompletedTask);
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, MockInvalidTokens());
 
         context.Items["UserId"].Should().Be(raw.Trim());
     }
@@ -65,7 +72,7 @@ public class LoginMiddlewareTests
             return Task.CompletedTask;
         });
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, MockInvalidTokens());
 
         called.Should().BeTrue();
         context.Items.ContainsKey("UserId").Should().BeFalse();
@@ -82,7 +89,7 @@ public class LoginMiddlewareTests
 
         var middleware = new LoginMiddleware(_ => Task.CompletedTask);
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, MockInvalidTokens());
 
         context.Items.ContainsKey("UserId").Should().BeFalse();
     }
@@ -98,7 +105,7 @@ public class LoginMiddlewareTests
 
         var middleware = new LoginMiddleware(_ => Task.CompletedTask);
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, MockInvalidTokens());
 
         context.Items.ContainsKey("UserId").Should().BeFalse();
     }
@@ -116,7 +123,7 @@ public class LoginMiddlewareTests
             return Task.CompletedTask;
         });
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, MockInvalidTokens());
 
         called.Should().BeTrue();
         context.Items.ContainsKey("UserId").Should().BeFalse();
@@ -130,7 +137,7 @@ public class LoginMiddlewareTests
 
         var middleware = new LoginMiddleware(_ => Task.CompletedTask);
 
-        Func<Task> act = async () => await middleware.InvokeAsync(context);
+        Func<Task> act = async () => await middleware.InvokeAsync(context, MockInvalidTokens());
 
         await act.Should().NotThrowAsync();
         context.Items.ContainsKey("UserId").Should().BeFalse();
@@ -148,7 +155,7 @@ public class LoginMiddlewareTests
 
         var middleware = new LoginMiddleware(_ => Task.CompletedTask);
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, MockInvalidTokens());
 
         context.Items["UserId"].Should().Be("existing-user");
     }
@@ -170,7 +177,7 @@ public class LoginMiddlewareTests
             return Task.CompletedTask;
         });
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, MockInvalidTokens());
 
         called.Should().BeTrue();
     }
@@ -188,7 +195,7 @@ public class LoginMiddlewareTests
             return Task.CompletedTask;
         });
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(context, MockInvalidTokens());
 
         called.Should().BeTrue();
     }

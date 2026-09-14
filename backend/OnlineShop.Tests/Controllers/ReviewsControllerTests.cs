@@ -23,9 +23,6 @@ public class ReviewsControllerTests
                 claims.Add(new Claim(ClaimTypes.Role, "Admin"));
 
             httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
-
-            // ⭐ Simulate LoginMiddleware
-            httpContext.Items["UserId"] = userId;
         }
 
         controller.ControllerContext = new ControllerContext

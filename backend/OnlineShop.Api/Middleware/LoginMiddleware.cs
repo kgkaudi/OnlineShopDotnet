@@ -36,7 +36,10 @@ public class LoginMiddleware
 
         if (!string.IsNullOrWhiteSpace(userId))
         {
-            context.Items["UserId"] = userId;
+            if (!context.Items.ContainsKey("UserId"))
+            {
+                context.Items["UserId"] = userId;
+            }
         }
 
         await _next(context);

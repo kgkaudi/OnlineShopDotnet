@@ -16,16 +16,15 @@ public class WishlistController : ControllerBase
         _service = service;
     }
 
-    private string? ResolveUserId()
+    private string? GetUserId()
     {
-        // Middleware first, fallback to claims (for tests)
-        return HttpContext.Items["UserId"] as string
-               ?? User.FindFirst("id")?.Value
-               ?? User.FindFirst("sub")?.Value;
+        return User.FindFirst("sub")?.Value?.Trim();
     }
 
-    private static bool IsValid(string? id)
-        => !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+    private bool IsValidObjectId(string? id)
+    {
+        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+    }
 
     // ---------------------------------------------------------
     // GET wishlist for logged-in user
@@ -34,8 +33,9 @@ public class WishlistController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get()
     {
-        var userId = ResolveUserId();
-        if (!IsValid(userId))
+        var userId = GetUserId();
+
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
         var wishlist = await _service.GetUserWishlistAsync(userId!);
@@ -46,23 +46,26 @@ public class WishlistController : ControllerBase
     // ADD product to wishlist
     // ---------------------------------------------------------
     [Authorize]
-    [HttpPost("{productId}")]
-    public async Task<IActionResult> Add(string productId)
+    [HttpPost("add")]
+    public async Task<IActionResult> Add(string? productId)
     {
-        var userId = ResolveUserId();
-        if (!IsValid(userId))
+        var userId = GetUserId();
+
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!IsValid(productId))
+        if (!IsValidObjectId(productId))
             return BadRequest("Invalid product id.");
 
-        var exists = await _service.ProductExistsAsync(productId);
+        // NEW: check product existence before calling AddAsync
+        var exists = await _service.ProductExistsAsync(productId!);
         if (!exists)
             return NotFound("Product not found.");
 
-        var success = await _service.AddAsync(userId!, productId);
+        var success = await _service.AddAsync(userId!, productId!);
+
         if (!success)
-            return Conflict("Product already in wishlist.");
+            return NotFound("Product not found.");
 
         return Ok(new { message = "Product added to wishlist" });
     }
@@ -71,17 +74,19 @@ public class WishlistController : ControllerBase
     // REMOVE product from wishlist
     // ---------------------------------------------------------
     [Authorize]
-    [HttpDelete("{productId}")]
-    public async Task<IActionResult> Remove(string productId)
+    [HttpDelete("remove")]
+    public async Task<IActionResult> Remove(string? productId)
     {
-        var userId = ResolveUserId();
-        if (!IsValid(userId))
+        var userId = GetUserId();
+
+        if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!IsValid(productId))
+        if (!IsValidObjectId(productId))
             return BadRequest("Invalid product id.");
 
-        var success = await _service.RemoveAsync(userId!, productId);
+        var success = await _service.RemoveAsync(userId!, productId!);
+
         if (!success)
             return NotFound("Product not found in wishlist.");
 

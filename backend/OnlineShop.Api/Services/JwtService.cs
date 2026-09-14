@@ -15,6 +15,22 @@ public class JwtService : IJwtService
         _config = config;
     }
 
+    // ---------------------------------------------------------
+    // VALIDATION HELPERS
+    // ---------------------------------------------------------
+
+    private static void ValidateUser(User user)
+    {
+        if (user == null)
+            throw new ArgumentNullException(nameof(user));
+
+        if (string.IsNullOrWhiteSpace(user.Id))
+            throw new ArgumentNullException(nameof(user.Id));
+
+        if (string.IsNullOrWhiteSpace(user.Email))
+            throw new ArgumentNullException(nameof(user.Email));
+    }
+
     private string GetConfig(string key)
     {
         var value = _config[key];
@@ -35,8 +51,15 @@ public class JwtService : IJwtService
         return new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
     }
 
+    // ---------------------------------------------------------
+    // GENERATE TOKEN
+    // ---------------------------------------------------------
+
     public string GenerateToken(User user)
     {
+        // ---------------------------------------------------------
+        // VALIDATION (tests expect ArgumentNullException)
+        // ---------------------------------------------------------
         if (user == null)
             throw new ArgumentNullException(nameof(user));
 
@@ -46,6 +69,9 @@ public class JwtService : IJwtService
         if (string.IsNullOrWhiteSpace(user.Email))
             throw new ArgumentNullException(nameof(user.Email), "Email is required.");
 
+        // ---------------------------------------------------------
+        // CONFIG VALIDATION
+        // ---------------------------------------------------------
         var keyString = GetConfig("Jwt:Key");
         var issuer = GetConfig("Jwt:Issuer");
         var audience = GetConfig("Jwt:Audience");
@@ -57,12 +83,14 @@ public class JwtService : IJwtService
         var key = BuildKey(keyString);
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
+        // ---------------------------------------------------------
+        // CLAIMS
+        // ---------------------------------------------------------
         var claims = new List<Claim>
-        {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-            new Claim(ClaimTypes.NameIdentifier, user.Id),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email.Trim())
-        };
+    {
+        new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+        new Claim(JwtRegisteredClaimNames.Email, user.Email.Trim())
+    };
 
         if (user.Roles != null)
         {
@@ -73,6 +101,9 @@ public class JwtService : IJwtService
             }
         }
 
+        // ---------------------------------------------------------
+        // TOKEN
+        // ---------------------------------------------------------
         var token = new JwtSecurityToken(
             issuer: issuer,
             audience: audience,
@@ -83,6 +114,10 @@ public class JwtService : IJwtService
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
+    // ---------------------------------------------------------
+    // GET EXPIRATION
+    // ---------------------------------------------------------
 
     public DateTime GetExpiration()
     {

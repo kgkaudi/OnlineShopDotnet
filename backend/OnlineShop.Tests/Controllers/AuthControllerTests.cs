@@ -15,6 +15,7 @@ public class AuthControllerTests : RepositoryTestBase
     private readonly AuthService _authService;
     private readonly JwtService _jwtService;
     private readonly UserRepository _userRepo;
+    private readonly InvalidTokenRepository _invalidTokens;
 
     public AuthControllerTests(MongoTestFixture fixture)
         : base(fixture)
@@ -25,6 +26,7 @@ public class AuthControllerTests : RepositoryTestBase
         );
 
         _userRepo = new UserRepository(dbConfig);
+        _invalidTokens = new InvalidTokenRepository(dbConfig);
 
         var jwtConfig = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -37,10 +39,11 @@ public class AuthControllerTests : RepositoryTestBase
             .Build();
 
         _jwtService = new JwtService(jwtConfig);
-        _authService = new AuthService(jwtConfig, _jwtService, _userRepo);
+        _authService = new AuthService(jwtConfig, _jwtService, _userRepo, _invalidTokens);
         _controller = new AuthController(_authService, _jwtService);
 
         Fixture.Database.DropCollection("Users");
+        Fixture.Database.DropCollection("InvalidTokens");
     }
 
     // ---------------------------------------------------------
