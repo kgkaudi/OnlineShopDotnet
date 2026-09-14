@@ -257,7 +257,7 @@ public class ProductsControllerTests
     }
 
     [Fact]
-    public async Task Update_ShouldReturnNotFound_WhenUpdatingTwice()
+    public async Task Update_ShouldReturnNotFound_WhenProductWasDeleted()
     {
         var service = new FakeProductService();
         var id = ObjectId.GenerateNewId().ToString();
@@ -266,6 +266,7 @@ public class ProductsControllerTests
         var controller = CreateController(service, isAdmin: true);
 
         var first = await controller.Update(id, new Product { Name = "Updated", Price = 20 });
+        await controller.Delete(id);
         var second = await controller.Update(id, new Product { Name = "UpdatedAgain", Price = 30 });
 
         first.Should().BeOfType<OkObjectResult>();

@@ -44,8 +44,8 @@ public class OrderServiceTests : RepositoryTestBase
         var userA = ObjectId.GenerateNewId().ToString();
         var userB = ObjectId.GenerateNewId().ToString();
 
-        await _repo.CreateAsync(new Order { Id = ObjectId.GenerateNewId().ToString(), UserId = userA });
-        await _repo.CreateAsync(new Order { Id = ObjectId.GenerateNewId().ToString(), UserId = userB });
+        await _repo.CreateAsync(new Order { Id = ObjectId.GenerateNewId().ToString(), UserId = userA, Total = 10 });
+        await _repo.CreateAsync(new Order { Id = ObjectId.GenerateNewId().ToString(), UserId = userB, Total = 10 });
 
         var result = await _service.GetAllAsync(true, "ignored");
 
@@ -58,8 +58,8 @@ public class OrderServiceTests : RepositoryTestBase
         var userId = ObjectId.GenerateNewId().ToString();
         var otherId = ObjectId.GenerateNewId().ToString();
 
-        await _repo.CreateAsync(new Order { Id = ObjectId.GenerateNewId().ToString(), UserId = userId });
-        await _repo.CreateAsync(new Order { Id = ObjectId.GenerateNewId().ToString(), UserId = otherId });
+        await _repo.CreateAsync(new Order { Id = ObjectId.GenerateNewId().ToString(), UserId = userId, Total = 10 });
+        await _repo.CreateAsync(new Order { Id = ObjectId.GenerateNewId().ToString(), UserId = otherId, Total = 10 });
 
         var result = await _service.GetAllAsync(false, userId);
 
@@ -121,7 +121,8 @@ public class OrderServiceTests : RepositoryTestBase
         var order = new Order
         {
             Id = ObjectId.GenerateNewId().ToString(),
-            UserId = userId
+            UserId = userId,
+            Total = 10
         };
 
         await _repo.CreateAsync(order);
@@ -139,7 +140,8 @@ public class OrderServiceTests : RepositoryTestBase
         var order = new Order
         {
             Id = ObjectId.GenerateNewId().ToString(),
-            UserId = ownerId
+            UserId = ownerId,
+            Total = 10
         };
 
         await _repo.CreateAsync(order);
@@ -185,7 +187,7 @@ public class OrderServiceTests : RepositoryTestBase
     {
         var userId = ObjectId.GenerateNewId().ToString();
 
-        var order = new Order { UserId = userId };
+        var order = new Order { UserId = userId, Total = 10 };
 
         var created = await _service.CreateAsync(order);
 
@@ -234,7 +236,7 @@ public class OrderServiceTests : RepositoryTestBase
     public async Task UpdateAsync_ShouldReturnFalse_WhenOrderNotFound()
     {
         var userId = ObjectId.GenerateNewId().ToString();
-        var order = new Order { Id = ObjectId.GenerateNewId().ToString(), UserId = userId };
+        var order = new Order { Id = ObjectId.GenerateNewId().ToString(), UserId = userId, Total = 10 };
 
         var result = await _service.UpdateAsync(order, true, "ignored");
         result.Should().BeFalse();
@@ -249,7 +251,8 @@ public class OrderServiceTests : RepositoryTestBase
         {
             Id = ObjectId.GenerateNewId().ToString(),
             UserId = userId,
-            Status = "Pending"
+            Status = "Pending",
+            Total = 10
         };
 
         await _repo.CreateAsync(order);
@@ -272,7 +275,8 @@ public class OrderServiceTests : RepositoryTestBase
         var order = new Order
         {
             Id = ObjectId.GenerateNewId().ToString(),
-            UserId = ownerId
+            UserId = ownerId,
+            Total = 10
         };
 
         await _repo.CreateAsync(order);
@@ -322,7 +326,8 @@ public class OrderServiceTests : RepositoryTestBase
         var order = new Order
         {
             Id = ObjectId.GenerateNewId().ToString(),
-            UserId = userId
+            UserId = userId,
+            Total = 10
         };
 
         await _repo.CreateAsync(order);
@@ -343,7 +348,8 @@ public class OrderServiceTests : RepositoryTestBase
         var order = new Order
         {
             Id = ObjectId.GenerateNewId().ToString(),
-            UserId = ownerId
+            UserId = ownerId,
+            Total = 10
         };
 
         await _repo.CreateAsync(order);

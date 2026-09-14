@@ -41,8 +41,8 @@ public class UserServiceTests : RepositoryTestBase
     [Fact]
     public async Task GetAllAsync_ShouldReturnAllUsers()
     {
-        await _repo.CreateAsync(new User { Id = ObjectId.GenerateNewId().ToString(), Email = "a@test.com" });
-        await _repo.CreateAsync(new User { Id = ObjectId.GenerateNewId().ToString(), Email = "b@test.com" });
+        await _repo.CreateAsync(new User { Id = ObjectId.GenerateNewId().ToString(), Email = "a@test.com", PasswordHash = "hash" });
+        await _repo.CreateAsync(new User { Id = ObjectId.GenerateNewId().ToString(), Email = "b@test.com", PasswordHash = "hash" });
 
         var result = await _service.GetAllAsync();
         result.Should().HaveCount(2);
@@ -78,7 +78,7 @@ public class UserServiceTests : RepositoryTestBase
     {
         var id = ObjectId.GenerateNewId().ToString();
 
-        var user = new User { Id = id, Email = "admin@test.com" };
+        var user = new User { Id = id, Email = "admin@test.com", PasswordHash = "hash" };
         await _repo.CreateAsync(user);
 
         var result = await _service.GetByIdAsync(id, "ignored", true);
@@ -90,7 +90,7 @@ public class UserServiceTests : RepositoryTestBase
     {
         var id = ObjectId.GenerateNewId().ToString();
 
-        var user = new User { Id = id, Email = "me@test.com" };
+        var user = new User { Id = id, Email = "me@test.com", PasswordHash = "hash" };
         await _repo.CreateAsync(user);
 
         var result = await _service.GetByIdAsync(id, id, false);
@@ -103,7 +103,7 @@ public class UserServiceTests : RepositoryTestBase
         var id = ObjectId.GenerateNewId().ToString();
         var otherId = ObjectId.GenerateNewId().ToString();
 
-        var user = new User { Id = id, Email = "me@test.com" };
+        var user = new User { Id = id, Email = "me@test.com", PasswordHash = "hash" };
         await _repo.CreateAsync(user);
 
         var result = await _service.GetByIdAsync(id, otherId, false);
@@ -141,12 +141,14 @@ public class UserServiceTests : RepositoryTestBase
         await _repo.CreateAsync(new User
         {
             Id = ObjectId.GenerateNewId().ToString(),
-            Email = "dup@test.com"
+            Email = "dup@test.com",
+            PasswordHash = "hash"
         });
 
         var result = await _service.CreateAsync(new User
         {
-            Email = "dup@test.com"
+            Email = "dup@test.com",
+            PasswordHash = "hash"
         });
 
         result.Should().BeNull();
@@ -157,7 +159,8 @@ public class UserServiceTests : RepositoryTestBase
     {
         var created = await _service.CreateAsync(new User
         {
-            Email = "   new@test.com   "
+            Email = "   new@test.com   ",
+            PasswordHash = "hash"
         });
 
         created.Should().NotBeNull();
@@ -169,7 +172,8 @@ public class UserServiceTests : RepositoryTestBase
     {
         var user = new User
         {
-            Email = "new@test.com"
+            Email = "new@test.com",
+            PasswordHash = "hash"
         };
 
         var created = await _service.CreateAsync(user);
@@ -224,7 +228,7 @@ public class UserServiceTests : RepositoryTestBase
     {
         var id = ObjectId.GenerateNewId().ToString();
 
-        var user = new User { Id = id, Email = "role@test.com", Roles = new List<string>() };
+        var user = new User { Id = id, Email = "role@test.com", Roles = new List<string>(), PasswordHash = "hash" };
         await _repo.CreateAsync(user);
 
         var added = await _service.AddRoleAsync(id, "Admin");
@@ -273,7 +277,7 @@ public class UserServiceTests : RepositoryTestBase
     {
         var id = ObjectId.GenerateNewId().ToString();
 
-        var user = new User { Id = id, Email = "delete@test.com" };
+        var user = new User { Id = id, Email = "delete@test.com", PasswordHash = "hash" };
         await _repo.CreateAsync(user);
 
         var deleted = await _service.DeleteAsync(id);

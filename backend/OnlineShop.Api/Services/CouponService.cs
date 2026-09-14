@@ -113,6 +113,8 @@ public class CouponService : ICouponService
         if (string.IsNullOrWhiteSpace(coupon.Code))
             return null;
 
+        coupon.Code = coupon.Code.Trim();
+
         if (string.IsNullOrWhiteSpace(coupon.Type))
             coupon.Type = "Default";
 
@@ -120,6 +122,10 @@ public class CouponService : ICouponService
             return null;
 
         if (coupon.MaxUsage <= 0)
+            return null;
+
+        var existing = await _repo.GetByCodeAsync(coupon.Code);
+        if (existing != null)
             return null;
 
         if (string.IsNullOrWhiteSpace(coupon.Id) || !ObjectId.TryParse(coupon.Id, out _))

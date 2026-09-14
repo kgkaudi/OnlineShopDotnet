@@ -261,7 +261,7 @@ public class CategoriesControllerTests
     }
 
     [Fact]
-    public async Task Update_ShouldReturnNotFound_WhenUpdatingTwice()
+    public async Task Update_ShouldReturnNotFound_WhenCategoryWasDeleted()
     {
         var service = new FakeCategoryService();
         var id = ObjectId.GenerateNewId().ToString();
@@ -270,6 +270,7 @@ public class CategoriesControllerTests
         var controller = CreateController(service, isAdmin: true);
 
         var first = await controller.Update(id, new Category { Name = "Updated" });
+        await controller.Delete(id);
         var second = await controller.Update(id, new Category { Name = "UpdatedAgain" });
 
         first.Should().BeOfType<NoContentResult>();

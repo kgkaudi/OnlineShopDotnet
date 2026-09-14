@@ -163,8 +163,10 @@ public class WishlistControllerTests
         var service = new FakeWishlistService();
         service.MarkProductExists(productId);
 
-        // Simulate failure by removing product existence
-        await service.RemoveAsync(userId, productId);   // FIXED: await
+        // The product exists, but AddAsync fails for some other internal reason
+        // (e.g. a storage error) — the controller must still surface that as
+        // NotFound rather than assuming existence implies success.
+        service.ForceAddFailure = true;
 
         var controller = CreateController(service, userId);
 
@@ -369,9 +371,14 @@ public class FakeWishlistService : IWishlistService
         return Task.FromResult(new List<WishlistItem>());
     }
 
+    public bool ForceAddFailure { get; set; } = false;
+
     public Task<bool> AddAsync(string userId, string productId)
     {
         if (!_existingProducts.Contains(productId))
+            return Task.FromResult(false);
+
+        if (ForceAddFailure)
             return Task.FromResult(false);
 
         AddToWishlist(userId, productId);

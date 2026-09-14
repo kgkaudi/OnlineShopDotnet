@@ -259,7 +259,7 @@ public class OrdersControllerTests
     }
 
     [Fact]
-    public async Task Update_ShouldReturnNotFound_WhenUpdatingTwice()
+    public async Task Update_ShouldReturnNotFound_WhenOrderWasDeleted()
     {
         var service = new FakeOrderService();
         var userId = ObjectId.GenerateNewId().ToString();
@@ -269,6 +269,7 @@ public class OrdersControllerTests
         var controller = CreateController(service, userId);
 
         var first = await controller.Update(orderId, new Order());
+        await controller.Delete(orderId);
         var second = await controller.Update(orderId, new Order());
 
         first.Should().BeOfType<OkObjectResult>();

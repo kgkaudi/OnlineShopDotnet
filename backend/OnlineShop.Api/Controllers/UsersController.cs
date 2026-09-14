@@ -61,15 +61,18 @@ public class UsersController : ControllerBase
 
         var isAdmin = IsAdmin();
 
-        var user = await _service.GetByIdAsync(id!, currentUserId!, isAdmin);
+        // Fetch with unrestricted visibility (bypass the ownership check inside
+        // the service) so we can tell "doesn't exist" (NotFound) apart from
+        // "exists but isn't yours" (Forbid) — the service itself returns null
+        // for both cases when queried with the real caller's identity.
+        var existenceCheck = await _service.GetByIdAsync(id!, id!, true);
+        if (existenceCheck == null)
+            return NotFound("User not found.");
 
-        // For tests: when not owner and not admin, service returns null → should be Forbid
-        if (user == null)
+        if (!isAdmin && currentUserId != id)
             return Forbid();
 
-        // If you later need a distinct NotFound case, you can adjust service behavior accordingly.
-
-        return Ok(user);
+        return Ok(existenceCheck);
     }
 
     // ---------------------------------------------------------

@@ -88,7 +88,9 @@ public class OrderRepository : IOrderRepository
         if (!ObjectId.TryParse(order.UserId, out _))
             return false;
 
-        // ❗ Total is NOT validated here
+        // Total must be validated here too, matching CreateAsync's rule.
+        if (order.Total <= 0)
+            return false;
 
         var existing = await GetByIdAsync(order.Id);
         if (existing == null)

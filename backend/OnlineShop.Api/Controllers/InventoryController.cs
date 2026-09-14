@@ -28,6 +28,9 @@ public class InventoryController : ControllerBase
     [HttpPost("restock")]
     public async Task<IActionResult> Restock(string? productId, int amount)
     {
+        if (!User.IsInRole("Admin"))
+            return Unauthorized("Admin only.");
+
         if (!IsValidObjectId(productId))
             return BadRequest("Invalid product id.");
 
@@ -50,6 +53,9 @@ public class InventoryController : ControllerBase
     [HttpPost("reduce")]
     public async Task<IActionResult> Reduce(string? productId, int amount)
     {
+        if (!User.IsInRole("Admin"))
+            return Unauthorized("Admin only.");
+
         if (!IsValidObjectId(productId))
             return BadRequest("Invalid product id.");
 

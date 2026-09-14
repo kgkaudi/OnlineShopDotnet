@@ -142,6 +142,8 @@ public class CouponServiceTests : RepositoryTestBase
         {
             Id = ObjectId.GenerateNewId().ToString(),
             Code = "INACTIVE",
+            Type = "percentage",
+            Value = 10,
             Active = false,
             Expiration = DateTime.UtcNow.AddDays(1),
             MaxUsage = 10
@@ -160,6 +162,8 @@ public class CouponServiceTests : RepositoryTestBase
         {
             Id = ObjectId.GenerateNewId().ToString(),
             Code = "OLD",
+            Type = "percentage",
+            Value = 10,
             Active = true,
             Expiration = DateTime.UtcNow.AddDays(-1),
             MaxUsage = 10
@@ -178,6 +182,8 @@ public class CouponServiceTests : RepositoryTestBase
         {
             Id = ObjectId.GenerateNewId().ToString(),
             Code = "LIMIT",
+            Type = "percentage",
+            Value = 10,
             Active = true,
             Expiration = DateTime.UtcNow.AddDays(1),
             MaxUsage = 1,

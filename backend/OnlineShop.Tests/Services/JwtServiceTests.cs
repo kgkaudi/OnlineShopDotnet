@@ -199,7 +199,7 @@ public class JwtServiceTests
     {
         var service = CreateService(ValidSettings);
 
-        var user = new User { Email = "a@b.com", Roles = new List<string>() };
+        var user = new User { Id = null!, Email = "a@b.com", Roles = new List<string>() };
 
         Action act = () => service.GenerateToken(user);
 

@@ -60,7 +60,10 @@ public class OrdersController : ControllerBase
 
         var isAdmin = User.IsInRole("Admin");
 
-        var order = await _service.GetByIdAsync(id!, isAdmin, userId!);
+        // Fetch with admin visibility so we can tell "doesn't exist" (NotFound)
+        // apart from "exists but isn't yours" (Forbid) — the service itself
+        // hides other users' orders by returning null for both cases.
+        var order = await _service.GetByIdAsync(id!, true, userId!);
 
         // Tests expect NotFound when order does not exist
         if (order == null)
