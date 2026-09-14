@@ -9,6 +9,33 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  async function addToWishlist(productId: string) {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("You must be logged in.");
+        return;
+      }
+
+      const res = await fetch(
+        `http://localhost:5000/api/wishlist/${productId}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!res.ok) {
+        alert(await res.text());
+        return;
+      }
+
+      alert("Added to wishlist ❤️");
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   useEffect(() => {
     api
       .getProducts()
@@ -46,6 +73,13 @@ export default function ProductsPage() {
 
               <button className="mt-4 w-full bg-black text-white py-2 rounded">
                 Add to Cart
+              </button>
+
+              <button
+                onClick={() => addToWishlist(product.id)}
+                className="mt-2 w-full border border-gray-300 py-2 rounded hover:bg-gray-100"
+              >
+                ❤️ Add to Wishlist
               </button>
             </div>
           ))}
