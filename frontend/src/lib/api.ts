@@ -1,22 +1,99 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+/**
+ * Shared types
+ */
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+}
+
+export interface CartItem {
+  id: string;
+  productId: string;
+  productName: string;
+  price: number;
+  quantity: number;
+}
+
+/**
+ * Core request wrapper with optional token support
+ */
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  token?: string
+): Promise<T> {
+  // ✅ Use Record<string, string> for safe indexing
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
+    headers,
     cache: "no-store",
   });
 
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(message || `Request failed: ${res.status}`);
+  }
+
+  return res.json() as T;
 }
 
+/**
+ * Client-side token helper
+ */
+export function getClientToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("token");
+}
+
+/**
+ * API endpoints
+ */
 export const api = {
-  getProducts: () => request("/products"),
-  getProduct: (id: string) => request(`/products/${id}`),
+  // AUTH
   login: (data: { email: string; password: string }) =>
-    request("/auth/login", { method: "POST", body: JSON.stringify(data) }),
+    request<{ token: string }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // PRODUCTS
+  getProducts: () => request<Product[]>("/products"),
+  getProduct: (id: string) => request<Product>(`/products/${id}`),
+
+  // CART
+  getCart: (token?: string) => request<CartItem[]>("/cart", {}, token),
+  addToCart: (productId: string, token?: string) =>
+    request<CartItem>(
+      "/cart",
+      {
+        method: "POST",
+        body: JSON.stringify({ productId }),
+      },
+      token
+    ),
+
+  // WISHLIST
+  getWishlist: (token?: string) => request<Product[]>("/wishlist", {}, token),
+  addToWishlist: (productId: string, token?: string) =>
+    request<Product>(
+      "/wishlist",
+      {
+        method: "POST",
+        body: JSON.stringify({ productId }),
+      },
+      token
+    ),
 };

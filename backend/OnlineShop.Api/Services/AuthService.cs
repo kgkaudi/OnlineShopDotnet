@@ -20,13 +20,9 @@ public class AuthService : IAuthService
 
     public async Task<User?> RegisterAsync(string email, string password, string fullName)
     {
-        if (string.IsNullOrWhiteSpace(email))
-            return null;
-
-        if (string.IsNullOrWhiteSpace(password))
-            return null;
-
-        if (string.IsNullOrWhiteSpace(fullName))
+        if (string.IsNullOrWhiteSpace(email) ||
+            string.IsNullOrWhiteSpace(password) ||
+            string.IsNullOrWhiteSpace(fullName))
             return null;
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
@@ -39,9 +35,9 @@ public class AuthService : IAuthService
         {
             Id = ObjectId.GenerateNewId().ToString(),
             Email = normalizedEmail,
-            FullName = fullName,
+            FullName = fullName.Trim(),
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
-            Roles = new List<string>() // start empty
+            Roles = new List<string> { "User" }
         };
 
         await _repo.CreateAsync(user);
@@ -50,16 +46,10 @@ public class AuthService : IAuthService
 
     public async Task<string?> LoginAsync(string email, string password)
     {
-        if (string.IsNullOrWhiteSpace(email))
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
             return null;
 
-        if (string.IsNullOrWhiteSpace(password))
-            return null;
-
-        // Tests expect TRIM but NOT lowercase
         var trimmedEmail = email.Trim();
-
-        // Case-sensitive lookup (tests require this)
         var user = await _repo.GetByEmailAsync(trimmedEmail);
         if (user == null)
             return null;
@@ -80,20 +70,16 @@ public class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(hash))
             return false;
 
-        return hash.StartsWith("$2a$")
-            || hash.StartsWith("$2b$")
-            || hash.StartsWith("$2y$");
+        return hash.StartsWith("$2a$") ||
+               hash.StartsWith("$2b$") ||
+               hash.StartsWith("$2y$");
     }
 
     public async Task<bool> AddRoleAsync(string userId, string role)
     {
-        if (string.IsNullOrWhiteSpace(userId))
-            return false;
-
-        if (!ObjectId.TryParse(userId, out _))
-            return false;
-
-        if (string.IsNullOrWhiteSpace(role))
+        if (string.IsNullOrWhiteSpace(userId) ||
+            string.IsNullOrWhiteSpace(role) ||
+            !ObjectId.TryParse(userId, out _))
             return false;
 
         return await _repo.AddRoleAsync(userId, role);

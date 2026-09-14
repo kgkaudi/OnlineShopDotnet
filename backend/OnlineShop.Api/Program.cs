@@ -17,7 +17,6 @@ builder.Services.Configure<MongoDbSettings>(
     builder.Configuration.GetSection("MongoDB")
 );
 
-// Register MongoDB client
 builder.Services.AddSingleton<IMongoClient>(sp =>
 {
     var settings = builder.Configuration.GetSection("MongoDB").Get<MongoDbSettings>()
@@ -52,46 +51,50 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // ----------------------------
+// CORS Configuration
+// ----------------------------
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:3000")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
+
+// ----------------------------
 // Dependency Injection
 // ----------------------------
-
-// Auth
 builder.Services.AddSingleton<IJwtService, JwtService>();
 builder.Services.AddSingleton<AuthService>();
 
-// Users
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IUserService, UserService>();
 
-// Products
 builder.Services.AddSingleton<IProductRepository, ProductRepository>();
 builder.Services.AddSingleton<IProductService, ProductService>();
 
-// Orders
 builder.Services.AddSingleton<IOrderRepository, OrderRepository>();
 builder.Services.AddSingleton<IOrderService, OrderService>();
 
-// Cart
 builder.Services.AddSingleton<ICartRepository, CartRepository>();
 builder.Services.AddSingleton<ICartService, CartService>();
 
-// Categories
 builder.Services.AddSingleton<ICategoryRepository, CategoryRepository>();
 builder.Services.AddSingleton<ICategoryService, CategoryService>();
 
-// Inventory
 builder.Services.AddSingleton<IInventoryRepository, InventoryRepository>();
 builder.Services.AddSingleton<IInventoryService, InventoryService>();
 
-// Reviews
 builder.Services.AddSingleton<IReviewRepository, ReviewRepository>();
 builder.Services.AddSingleton<IReviewService, ReviewService>();
 
-// Wishlist
 builder.Services.AddSingleton<IWishlistRepository, WishlistRepository>();
 builder.Services.AddSingleton<IWishlistService, WishlistService>();
 
-// Coupons / Discounts
 builder.Services.AddSingleton<ICouponRepository, CouponRepository>();
 builder.Services.AddSingleton<ICouponService, CouponService>();
 
@@ -109,7 +112,7 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 // ----------------------------
-// Run MongoDB Migration + Seed
+// MongoDB Migration + Seed
 // ----------------------------
 using (var scope = app.Services.CreateScope())
 {
@@ -131,6 +134,7 @@ if (app.Environment.IsDevelopment())
 // Middleware
 // ----------------------------
 app.UseRouting();
+app.UseCors("AllowFrontend");
 app.UseMiddleware<ObjectIdValidationMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();

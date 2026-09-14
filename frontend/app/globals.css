@@ -1,1 +1,33 @@
 @import "tailwindcss";
+
+.auth-container {
+  @apply flex flex-col items-center justify-center min-h-screen bg-gray-50;
+}
+
+.auth-box {
+  @apply bg-white p-8 rounded shadow w-full max-w-md text-center;
+}
+
+.auth-box h1 {
+  @apply text-xl font-semibold mb-6;
+}
+
+.auth-box input {
+  @apply w-full border border-gray-300 rounded px-3 py-2 mb-4;
+}
+
+.auth-box button {
+  @apply w-full py-2 rounded text-white font-medium;
+}
+
+.auth-box button.register {
+  @apply bg-purple-600 hover:bg-purple-700;
+}
+
+.auth-box button.login {
+  @apply bg-black hover:bg-gray-800;
+}
+
+.error {
+  @apply text-red-500 mt-4 text-center;
+}
