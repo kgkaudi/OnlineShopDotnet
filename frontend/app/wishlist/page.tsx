@@ -27,7 +27,10 @@ export default function WishlistPage() {
         return;
       }
 
+      console.log(res);
+
       const data = await res.json();
+      console.log(data);
       setItems(data);
     } catch (err: any) {
       setError(err.message);
@@ -39,13 +42,19 @@ export default function WishlistPage() {
   async function removeItem(productId: string) {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(
-        `http://localhost:5000/api/wishlist/${productId}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      if (!token) {
+        alert("You must be logged in.");
+        return;
+      }
+
+      const res = await fetch("http://localhost:5000/api/wishlist/remove", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ productId }),
+      });
 
       if (!res.ok) {
         alert(await res.text());
@@ -56,6 +65,7 @@ export default function WishlistPage() {
       setItems((prev) => prev.filter((i) => i.productId !== productId));
     } catch (err) {
       console.error(err);
+      alert("Something went wrong while removing from wishlist.");
     }
   }
 
@@ -76,15 +86,21 @@ export default function WishlistPage() {
         <p className="text-gray-600">Your wishlist is empty.</p>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         {items.map((item) => (
-          <div key={item.productId} className="border p-4 rounded shadow-sm">
+          <div
+            key={item.productId}
+            className="border rounded p-4 bg-white shadow-sm hover:shadow-md transition"
+          >
             <h2 className="font-semibold text-lg">{item.productName}</h2>
-            <p className="text-gray-600 mb-2">{item.productPrice} €</p>
+            {item.productDescription && (
+              <p className="text-gray-600 mt-1">{item.productDescription}</p>
+            )}
+            <p className="text-black font-bold mt-3">{item.productPrice} €</p>
 
             <button
               onClick={() => removeItem(item.productId)}
-              className="text-red-600 hover:underline"
+              className="mt-4 w-full border border-red-400 text-red-600 py-2 rounded hover:bg-red-50"
             >
               Remove
             </button>

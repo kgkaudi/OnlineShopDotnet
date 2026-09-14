@@ -61,6 +61,16 @@ public class ProductRepository : IProductRepository
         return await _products.Find(p => p.Id == id).FirstOrDefaultAsync();
     }
 
+    public async Task<List<Product>> GetByIdsAsync(List<string> ids)
+    {
+        if (ids == null || ids.Count == 0)
+            return new List<Product>();
+
+        return await _products
+            .Find(p => ids.Contains(p.Id))
+            .ToListAsync();
+    }
+
     // ---------------------------------------------------------
     // UPDATE
     // ---------------------------------------------------------
@@ -130,7 +140,7 @@ public class ProductRepository : IProductRepository
         // Keyword search (name + description)
         if (!string.IsNullOrWhiteSpace(keyword))
         {
-            var regex = new MongoDB.Bson.BsonRegularExpression(keyword, "i");
+            var regex = new BsonRegularExpression(keyword, "i");
 
             filters.Add(
                 Builders<Product>.Filter.Or(

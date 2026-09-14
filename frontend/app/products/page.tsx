@@ -17,22 +17,25 @@ export default function ProductsPage() {
         return;
       }
 
-      const res = await fetch(
-        `http://localhost:5000/api/wishlist/${productId}`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const res = await fetch("http://localhost:5000/api/wishlist/add", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ productId }),
+      });
 
       if (!res.ok) {
-        alert(await res.text());
+        const msg = await res.text();
+        alert(msg);
         return;
       }
 
-      alert("Added to wishlist ❤️");
+      alert("Added to wishlist");
     } catch (err) {
       console.error(err);
+      alert("Something went wrong while adding to wishlist.");
     }
   }
 
@@ -66,9 +69,7 @@ export default function ProductsPage() {
               className="border rounded p-4 bg-white shadow-sm hover:shadow-md transition"
             >
               <h2 className="font-semibold text-lg">{product.name}</h2>
-
               <p className="text-gray-600 mt-1">{product.description}</p>
-
               <p className="text-black font-bold mt-3">{product.price} €</p>
 
               <button className="mt-4 w-full bg-black text-white py-2 rounded">

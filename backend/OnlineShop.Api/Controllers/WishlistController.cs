@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OnlineShop.Api.Services;
 using MongoDB.Bson;
+using System.Security.Claims;
 
 namespace OnlineShop.Api.Controllers;
 
@@ -18,7 +19,8 @@ public class WishlistController : ControllerBase
 
     private string? GetUserId()
     {
-        return User.FindFirst("sub")?.Value?.Trim();
+        return User.FindFirst("sub")?.Value?.Trim()
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value?.Trim();
     }
 
     private bool IsValidObjectId(string? id)
@@ -43,26 +45,30 @@ public class WishlistController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // ADD product to wishlist
+    // ADD product to wishlist (JSON body)
     // ---------------------------------------------------------
+    public class WishlistAddRequest
+    {
+        public string ProductId { get; set; } = default!;
+    }
+
     [Authorize]
     [HttpPost("add")]
-    public async Task<IActionResult> Add(string? productId)
+    public async Task<IActionResult> Add([FromBody] WishlistAddRequest request)
     {
         var userId = GetUserId();
 
         if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!IsValidObjectId(productId))
+        if (!IsValidObjectId(request.ProductId))
             return BadRequest("Invalid product id.");
 
-        // NEW: check product existence before calling AddAsync
-        var exists = await _service.ProductExistsAsync(productId!);
+        var exists = await _service.ProductExistsAsync(request.ProductId);
         if (!exists)
             return NotFound("Product not found.");
 
-        var success = await _service.AddAsync(userId!, productId!);
+        var success = await _service.AddAsync(userId!, request.ProductId);
 
         if (!success)
             return NotFound("Product not found.");
@@ -71,21 +77,26 @@ public class WishlistController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // REMOVE product from wishlist
+    // REMOVE product from wishlist (JSON body)
     // ---------------------------------------------------------
+    public class WishlistRemoveRequest
+    {
+        public string ProductId { get; set; } = default!;
+    }
+
     [Authorize]
     [HttpDelete("remove")]
-    public async Task<IActionResult> Remove(string? productId)
+    public async Task<IActionResult> Remove([FromBody] WishlistRemoveRequest request)
     {
         var userId = GetUserId();
 
         if (!IsValidObjectId(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!IsValidObjectId(productId))
+        if (!IsValidObjectId(request.ProductId))
             return BadRequest("Invalid product id.");
 
-        var success = await _service.RemoveAsync(userId!, productId!);
+        var success = await _service.RemoveAsync(userId!, request.ProductId);
 
         if (!success)
             return NotFound("Product not found in wishlist.");

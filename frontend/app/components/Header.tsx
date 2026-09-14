@@ -4,22 +4,27 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/src/store/authStore";
 import { logout as logoutApi } from "@/src/api/auth";
+import { useEffect, useState } from "react";
 
 export default function Header() {
   const router = useRouter();
-
-  // Subscribe to global auth state
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const setLoggedIn = useAuthStore((state) => state.setLoggedIn);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    // Mark hydration complete
+    setHydrated(true);
+  }, []);
 
   async function handleLogout() {
-    // Backend logout (token invalidation)
-    await logoutApi();
+    try {
+      await logoutApi();
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
 
-    // Update global auth state
     setLoggedIn(false);
-
-    // Redirect
     router.push("/auth/login");
   }
 
@@ -41,19 +46,24 @@ export default function Header() {
             Wishlist
           </Link>
 
-          {!isLoggedIn && (
-            <Link href="/auth/login" className="text-black hover:underline">
-              Login
-            </Link>
-          )}
+          {/* Render login/logout only after hydration */}
+          {hydrated && (
+            <>
+              {!isLoggedIn && (
+                <Link href="/auth/login" className="text-black hover:underline">
+                  Login
+                </Link>
+              )}
 
-          {isLoggedIn && (
-            <button
-              onClick={handleLogout}
-              className="text-black hover:underline"
-            >
-              Logout
-            </button>
+              {isLoggedIn && (
+                <button
+                  onClick={handleLogout}
+                  className="text-black hover:underline"
+                >
+                  Logout
+                </button>
+              )}
+            </>
           )}
         </nav>
       </div>

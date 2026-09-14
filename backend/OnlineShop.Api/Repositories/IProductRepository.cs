@@ -10,7 +10,9 @@ public interface IProductRepository
     Task<bool> UpdateAsync(Product product);
     Task<bool> DeleteAsync(string id);
 
-    // NEW
+    Task<List<Product>> GetByIdsAsync(List<string> ids);
+
+    // SEARCH
     Task<List<Product>> SearchAsync(
         string? keyword,
         string? categoryId,
