@@ -6,6 +6,7 @@ using OnlineShop.Api.Settings;
 using OnlineShop.Api.Repositories;
 using MongoDB.Driver;
 using OnlineShop.Api.Migrations;
+using OnlineShop.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -129,8 +130,11 @@ if (app.Environment.IsDevelopment())
 // ----------------------------
 // Middleware
 // ----------------------------
+app.UseRouting();
+app.UseMiddleware<ObjectIdValidationMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();
+app.UseMiddleware<LoginMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

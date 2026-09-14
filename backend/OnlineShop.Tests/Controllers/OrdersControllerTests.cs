@@ -23,6 +23,9 @@ public class OrdersControllerTests
                 claims.Add(new Claim(ClaimTypes.Role, "Admin"));
 
             httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
+
+            // ⭐ Simulate LoginMiddleware
+            httpContext.Items["UserId"] = userId;
         }
 
         controller.ControllerContext = new ControllerContext
@@ -253,16 +256,14 @@ public class OrdersControllerTests
 
         var controller = CreateController(service, userId);
 
-        var result = await controller.Update(orderId, new Order { UserId = userId,
-                Items = new List<OrderItem>
-                {
-                    new OrderItem
-                    {
-                        ProductId = "p1",
-                        Quantity = 2
-                    }
-                }
-            });
+        var result = await controller.Update(orderId, new Order
+        {
+            UserId = userId,
+            Items = new List<OrderItem>
+            {
+                new OrderItem { ProductId = "p1", Quantity = 2 }
+            }
+        });
 
         result.Should().BeOfType<OkObjectResult>();
     }
@@ -282,26 +283,13 @@ public class OrdersControllerTests
             UserId = userId,
             Items = new List<OrderItem>
             {
-                new OrderItem
-                {
-                    ProductId = "p1",
-                    Quantity = 1
-                }
+                new OrderItem { ProductId = "p1", Quantity = 1 }
             }
         };
 
-        var first = await controller.Update(
-            orderId,
-            validOrder);
-
+        var first = await controller.Update(orderId, validOrder);
         var deleteResult = await controller.Delete(orderId);
-
-        var second = await controller.Update(
-            orderId,
-            new Order
-            {
-                UserId = userId
-            });
+        var second = await controller.Update(orderId, new Order { UserId = userId });
 
         first.Should().BeOfType<OkObjectResult>();
         deleteResult.Should().BeOfType<OkObjectResult>();

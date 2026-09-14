@@ -26,6 +26,8 @@ public class WishlistControllerTests
                     new Claim("sub", userId)
                 }, "test")
             );
+
+            httpContext.Items["UserId"] = userId;
         }
 
         controller.ControllerContext = new ControllerContext
@@ -163,9 +165,6 @@ public class WishlistControllerTests
         var service = new FakeWishlistService();
         service.MarkProductExists(productId);
 
-        // The product exists, but AddAsync fails for some other internal reason
-        // (e.g. a storage error) — the controller must still surface that as
-        // NotFound rather than assuming existence implies success.
         service.ForceAddFailure = true;
 
         var controller = CreateController(service, userId);
@@ -347,7 +346,6 @@ public class FakeWishlistService : IWishlistService
     {
         return Task.FromResult(_existingProducts.Contains(productId));
     }
-
 
     public void AddToWishlist(string userId, string productId)
     {

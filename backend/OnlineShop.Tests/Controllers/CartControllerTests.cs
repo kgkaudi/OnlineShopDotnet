@@ -24,6 +24,8 @@ public class CartControllerTests
                     new Claim("sub", userId)
                 }, "test")
             );
+
+            httpContext.Items["UserId"] = userId;
         }
 
         controller.ControllerContext = new ControllerContext

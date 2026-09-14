@@ -17,12 +17,14 @@ public class ReviewsController : ControllerBase
         _service = service;
     }
 
-    private string? GetUserId()
+    private string? ResolveUserId()
     {
-        return User.FindFirst("sub")?.Value?.Trim();
+        // Middleware first, fallback to claims (for tests)
+        return HttpContext.Items["UserId"] as string
+               ?? User.FindFirst("sub")?.Value;
     }
 
-    private bool IsValidObjectId(string? id)
+    private bool IsValid(string? id)
     {
         return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
     }
@@ -33,7 +35,7 @@ public class ReviewsController : ControllerBase
     [HttpGet("{productId}")]
     public async Task<IActionResult> GetByProduct(string? productId)
     {
-        if (!IsValidObjectId(productId))
+        if (!IsValid(productId))
             return BadRequest("Invalid product id.");
 
         var reviews = await _service.GetByProductIdAsync(productId!);
@@ -47,14 +49,14 @@ public class ReviewsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create(Review? review)
     {
-        var userId = GetUserId();
-        if (!IsValidObjectId(userId))
+        var userId = ResolveUserId();
+        if (!IsValid(userId))
             return Unauthorized("Invalid user token.");
 
         if (review == null)
             return BadRequest("Invalid review data.");
 
-        if (!IsValidObjectId(review.ProductId))
+        if (!IsValid(review.ProductId))
             return BadRequest("Invalid product id.");
 
         var comment = review.Comment?.Trim();
@@ -70,7 +72,7 @@ public class ReviewsController : ControllerBase
 
         var created = await _service.CreateAsync(review);
 
-        // Service returns null → tests expect BadRequest
+        // Tests expect BadRequest when service returns null
         if (created == null)
             return BadRequest("Invalid review data.");
 
@@ -84,7 +86,7 @@ public class ReviewsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string? id)
     {
-        if (!IsValidObjectId(id))
+        if (!IsValid(id))
             return BadRequest("Invalid review id.");
 
         var success = await _service.DeleteAsync(id!);

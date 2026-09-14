@@ -16,12 +16,14 @@ public class WishlistController : ControllerBase
         _service = service;
     }
 
-    private string? GetUserId()
+    private string? ResolveUserId()
     {
-        return User.FindFirst("sub")?.Value?.Trim();
+        // Middleware first, fallback to claims (for tests)
+        return HttpContext.Items["UserId"] as string
+               ?? User.FindFirst("sub")?.Value;
     }
 
-    private bool IsValidObjectId(string? id)
+    private bool IsValid(string? id)
     {
         return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
     }
@@ -33,9 +35,8 @@ public class WishlistController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get()
     {
-        var userId = GetUserId();
-
-        if (!IsValidObjectId(userId))
+        var userId = ResolveUserId();
+        if (!IsValid(userId))
             return Unauthorized("Invalid user token.");
 
         var wishlist = await _service.GetUserWishlistAsync(userId!);
@@ -49,15 +50,14 @@ public class WishlistController : ControllerBase
     [HttpPost("add")]
     public async Task<IActionResult> Add(string? productId)
     {
-        var userId = GetUserId();
-
-        if (!IsValidObjectId(userId))
+        var userId = ResolveUserId();
+        if (!IsValid(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!IsValidObjectId(productId))
+        if (!IsValid(productId))
             return BadRequest("Invalid product id.");
 
-        // NEW: check product existence before calling AddAsync
+        // Tests expect NotFound when product does not exist
         var exists = await _service.ProductExistsAsync(productId!);
         if (!exists)
             return NotFound("Product not found.");
@@ -77,12 +77,11 @@ public class WishlistController : ControllerBase
     [HttpDelete("remove")]
     public async Task<IActionResult> Remove(string? productId)
     {
-        var userId = GetUserId();
-
-        if (!IsValidObjectId(userId))
+        var userId = ResolveUserId();
+        if (!IsValid(userId))
             return Unauthorized("Invalid user token.");
 
-        if (!IsValidObjectId(productId))
+        if (!IsValid(productId))
             return BadRequest("Invalid product id.");
 
         var success = await _service.RemoveAsync(userId!, productId!);
