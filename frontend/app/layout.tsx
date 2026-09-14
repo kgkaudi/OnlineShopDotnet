@@ -4,6 +4,7 @@ import "./globals.css";
 
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import { SnackbarProvider } from "@/src/context/SnackbarContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,9 +29,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="bg-gray-50">
-        <Header />
-        <main className="py-10">{children}</main>
-        <Footer />
+        <SnackbarProvider>
+          <Header />
+          <main className="py-10">{children}</main>
+          <Footer />
+        </SnackbarProvider>
       </body>
     </html>
   );

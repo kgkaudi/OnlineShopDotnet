@@ -3,17 +3,19 @@
 import { useEffect, useState } from "react";
 import Container from "../components/Container";
 import { api } from "@/src/lib/api";
+import { useSnackbar } from "@/src/context/SnackbarContext";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { showSnackbar } = useSnackbar();
 
   async function addToWishlist(productId: string) {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        alert("You must be logged in.");
+        showSnackbar("You must be logged in.", "error");
         return;
       }
 
@@ -28,14 +30,14 @@ export default function ProductsPage() {
 
       if (!res.ok) {
         const msg = await res.text();
-        alert(msg);
+        showSnackbar(msg, "error");
         return;
       }
 
-      alert("Added to wishlist");
+      showSnackbar("Added to wishlist!", "success");
     } catch (err) {
       console.error(err);
-      alert("Something went wrong while adding to wishlist.");
+      showSnackbar("Something went wrong while adding to wishlist.", "error");
     }
   }
 

@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Container from "../components/Container";
+import { useSnackbar } from "@/src/context/SnackbarContext";
 
 export default function WishlistPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { showSnackbar } = useSnackbar();
 
   async function fetchWishlist() {
     try {
@@ -27,10 +29,7 @@ export default function WishlistPage() {
         return;
       }
 
-      console.log(res);
-
       const data = await res.json();
-      console.log(data);
       setItems(data);
     } catch (err: any) {
       setError(err.message);
@@ -43,7 +42,7 @@ export default function WishlistPage() {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        alert("You must be logged in.");
+        showSnackbar("You must be logged in.", "error");
         return;
       }
 
@@ -57,15 +56,18 @@ export default function WishlistPage() {
       });
 
       if (!res.ok) {
-        alert(await res.text());
+        const msg = await res.text();
+        showSnackbar(msg, "error");
         return;
       }
 
       // Remove from UI
       setItems((prev) => prev.filter((i) => i.productId !== productId));
+
+      showSnackbar("Removed from wishlist", "success");
     } catch (err) {
       console.error(err);
-      alert("Something went wrong while removing from wishlist.");
+      showSnackbar("Something went wrong while removing item.", "error");
     }
   }
 
@@ -93,9 +95,11 @@ export default function WishlistPage() {
             className="border rounded p-4 bg-white shadow-sm hover:shadow-md transition"
           >
             <h2 className="font-semibold text-lg">{item.productName}</h2>
+
             {item.productDescription && (
               <p className="text-gray-600 mt-1">{item.productDescription}</p>
             )}
+
             <p className="text-black font-bold mt-3">{item.productPrice} €</p>
 
             <button
