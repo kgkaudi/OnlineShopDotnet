@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Container from "../../components/Container";
-import { api } from "@/src/lib/api";
+import { login as loginApi } from "@/src/api/auth";
+import { useAuthStore } from "@/src/store/authStore";
 
 export default function LoginPage() {
   const router = useRouter();
+  const setLoggedIn = useAuthStore((state) => state.setLoggedIn);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,8 +22,15 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await api.login({ email, password });
+      const res = await loginApi({ email, password });
+
+      // Save token
       localStorage.setItem("token", res.token);
+
+      // Update global auth state
+      setLoggedIn(true);
+
+      // Redirect
       router.push("/");
     } catch (err: any) {
       setError(err.message || "Login failed");

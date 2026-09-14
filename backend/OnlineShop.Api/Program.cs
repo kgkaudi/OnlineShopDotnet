@@ -68,35 +68,49 @@ builder.Services.AddCors(options =>
 // ----------------------------
 // Dependency Injection
 // ----------------------------
+
+// JWT + Auth
 builder.Services.AddSingleton<IJwtService, JwtService>();
-builder.Services.AddSingleton<AuthService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
-builder.Services.AddSingleton<IUserRepository, UserRepository>();
-builder.Services.AddSingleton<IUserService, UserService>();
+// Token invalidation repository (NEW)
+builder.Services.AddScoped<IInvalidTokenRepository, InvalidTokenRepository>();
 
-builder.Services.AddSingleton<IProductRepository, ProductRepository>();
-builder.Services.AddSingleton<IProductService, ProductService>();
+// Users
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
 
-builder.Services.AddSingleton<IOrderRepository, OrderRepository>();
-builder.Services.AddSingleton<IOrderService, OrderService>();
+// Products
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IProductService, ProductService>();
 
-builder.Services.AddSingleton<ICartRepository, CartRepository>();
-builder.Services.AddSingleton<ICartService, CartService>();
+// Orders
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
-builder.Services.AddSingleton<ICategoryRepository, CategoryRepository>();
-builder.Services.AddSingleton<ICategoryService, CategoryService>();
+// Cart
+builder.Services.AddScoped<ICartRepository, CartRepository>();
+builder.Services.AddScoped<ICartService, CartService>();
 
-builder.Services.AddSingleton<IInventoryRepository, InventoryRepository>();
-builder.Services.AddSingleton<IInventoryService, InventoryService>();
+// Categories
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
 
-builder.Services.AddSingleton<IReviewRepository, ReviewRepository>();
-builder.Services.AddSingleton<IReviewService, ReviewService>();
+// Inventory
+builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
 
-builder.Services.AddSingleton<IWishlistRepository, WishlistRepository>();
-builder.Services.AddSingleton<IWishlistService, WishlistService>();
+// Reviews
+builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
 
-builder.Services.AddSingleton<ICouponRepository, CouponRepository>();
-builder.Services.AddSingleton<ICouponService, CouponService>();
+// Wishlist
+builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
+builder.Services.AddScoped<IWishlistService, WishlistService>();
+
+// Coupons
+builder.Services.AddScoped<ICouponRepository, CouponRepository>();
+builder.Services.AddScoped<ICouponService, CouponService>();
 
 // ----------------------------
 // Controllers

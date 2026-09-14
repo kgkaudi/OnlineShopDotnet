@@ -26,12 +26,12 @@ async function request<T>(
   options: RequestInit = {},
   token?: string
 ): Promise<T> {
-  // ✅ Use Record<string, string> for safe indexing
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
+    ...(options.headers as Record<string, string> | undefined),
   };
 
+  // Attach token if provided
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
@@ -59,6 +59,15 @@ export function getClientToken(): string | null {
 }
 
 /**
+ * Logout helper
+ */
+export function logout() {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("token");
+  }
+}
+
+/**
  * API endpoints
  */
 export const api = {
@@ -74,26 +83,28 @@ export const api = {
   getProduct: (id: string) => request<Product>(`/products/${id}`),
 
   // CART
-  getCart: (token?: string) => request<CartItem[]>("/cart", {}, token),
-  addToCart: (productId: string, token?: string) =>
+  getCart: () => request<CartItem[]>("/cart", {}, getClientToken() || undefined),
+  addToCart: (productId: string) =>
     request<CartItem>(
       "/cart",
       {
         method: "POST",
         body: JSON.stringify({ productId }),
       },
-      token
+      getClientToken() || undefined
     ),
 
   // WISHLIST
-  getWishlist: (token?: string) => request<Product[]>("/wishlist", {}, token),
-  addToWishlist: (productId: string, token?: string) =>
+  getWishlist: () =>
+    request<Product[]>("/wishlist", {}, getClientToken() || undefined),
+
+  addToWishlist: (productId: string) =>
     request<Product>(
       "/wishlist",
       {
         method: "POST",
         body: JSON.stringify({ productId }),
       },
-      token
+      getClientToken() || undefined
     ),
 };
