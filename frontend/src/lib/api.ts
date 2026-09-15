@@ -147,8 +147,8 @@ export const api = {
     request<Product[]>("/wishlist", {}, getClientToken() || undefined),
 
   addToWishlist: (productId: string) =>
-    request<Product>(
-      "/wishlist",
+    request<{ message: string }>(
+      "/wishlist/add",
       {
         method: "POST",
         body: JSON.stringify({ productId }),
