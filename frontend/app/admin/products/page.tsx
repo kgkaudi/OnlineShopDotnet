@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   api,
@@ -56,6 +56,15 @@ export default function AdminProductsPage() {
 
   const [deletingProductId, setDeletingProductId] =
     useState<string | null>(null);
+
+  /*
+   * Custom category dropdown state.
+   */
+  const [categoryDropdownOpen, setCategoryDropdownOpen] =
+    useState(false);
+
+  const categoryDropdownRef =
+    useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,6 +152,61 @@ export default function AdminProductsPage() {
     };
   }, [isLoggedIn, router]);
 
+  /*
+   * Close the category dropdown when clicking outside.
+   */
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        categoryDropdownRef.current &&
+        !categoryDropdownRef.current.contains(
+          event.target as Node,
+        )
+      ) {
+        setCategoryDropdownOpen(false);
+      }
+    }
+
+    if (categoryDropdownOpen) {
+      document.addEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
+    }
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
+    };
+  }, [categoryDropdownOpen]);
+
+  /*
+   * Close the category dropdown with Escape.
+   */
+  useEffect(() => {
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setCategoryDropdownOpen(false);
+      }
+    }
+
+    if (categoryDropdownOpen) {
+      document.addEventListener(
+        "keydown",
+        handleEscape,
+      );
+    }
+
+    return () => {
+      document.removeEventListener(
+        "keydown",
+        handleEscape,
+      );
+    };
+  }, [categoryDropdownOpen]);
+
   function updateField(
     field: keyof ProductForm,
     value: string,
@@ -151,6 +215,27 @@ export default function AdminProductsPage() {
       ...current,
       [field]: value,
     }));
+  }
+
+  function handleCategorySelect(categoryId: string) {
+    updateField("categoryId", categoryId);
+    setCategoryDropdownOpen(false);
+  }
+
+  function getSelectedCategoryName(): string {
+    if (!form.categoryId) {
+      return "Select a category";
+    }
+
+    const selectedCategory = categories.find(
+      (category) =>
+        category.id === form.categoryId,
+    );
+
+    return (
+      selectedCategory?.name ??
+      "Select a category"
+    );
   }
 
   async function handleCreateProduct(
@@ -224,6 +309,7 @@ export default function AdminProductsPage() {
       ]);
 
       setForm(emptyForm);
+      setCategoryDropdownOpen(false);
 
       setSuccess(
         `Product "${createdProduct.name}" created successfully.`,
@@ -477,33 +563,136 @@ export default function AdminProductsPage() {
               Category
             </label>
 
-            <select
-              id="categoryId"
-              value={form.categoryId}
-              onChange={(event) =>
-                updateField(
-                  "categoryId",
-                  event.target.value,
-                )
-              }
-              className="w-full rounded border px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-black"
-              disabled={
-                creating || categories.length === 0
-              }
+            <div
+              ref={categoryDropdownRef}
+              className="relative"
             >
-              <option value="">
-                Select a category
-              </option>
-
-              {categories.map((category) => (
-                <option
-                  key={category.id}
-                  value={category.id}
+              <button
+                id="categoryId"
+                type="button"
+                disabled={
+                  creating ||
+                  categories.length === 0
+                }
+                onClick={() =>
+                  setCategoryDropdownOpen(
+                    (current) => !current,
+                  )
+                }
+                aria-haspopup="listbox"
+                aria-expanded={
+                  categoryDropdownOpen
+                }
+                className={`w-full rounded border bg-white px-3 py-2 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-black ${
+                  creating ||
+                  categories.length === 0
+                    ? "cursor-not-allowed opacity-50"
+                    : "cursor-pointer hover:bg-gray-50"
+                }`}
+              >
+                <span
+                  className={
+                    form.categoryId
+                      ? "text-gray-900"
+                      : "text-gray-500"
+                  }
                 >
-                  {category.name}
-                </option>
-              ))}
-            </select>
+                  {getSelectedCategoryName()}
+                </span>
+
+                <svg
+                  className={`h-5 w-5 transition-transform ${
+                    categoryDropdownOpen
+                      ? "rotate-180"
+                      : ""
+                  }`}
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+
+              {categoryDropdownOpen &&
+                categories.length > 0 && (
+                  <div
+                    className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg overflow-hidden"
+                    role="listbox"
+                    aria-labelledby="categoryId"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleCategorySelect("")
+                      }
+                      className={`w-full px-3 py-2 text-left hover:bg-gray-100 ${
+                        !form.categoryId
+                          ? "bg-gray-100 font-medium"
+                          : ""
+                      }`}
+                      role="option"
+                      aria-selected={
+                        !form.categoryId
+                      }
+                    >
+                      Select a category
+                    </button>
+
+                    {categories.map(
+                      (category) => {
+                        const isSelected =
+                          form.categoryId ===
+                          category.id;
+
+                        return (
+                          <button
+                            key={category.id}
+                            type="button"
+                            onClick={() =>
+                              handleCategorySelect(
+                                category.id,
+                              )
+                            }
+                            className={`w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between ${
+                              isSelected
+                                ? "bg-gray-100 font-medium"
+                                : ""
+                            }`}
+                            role="option"
+                            aria-selected={
+                              isSelected
+                            }
+                          >
+                            <span>
+                              {category.name}
+                            </span>
+
+                            {isSelected && (
+                              <svg
+                                className="h-5 w-5"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M16.704 5.29a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0l-3.25-3.25a.75.75 0 111.06-1.06l2.72 2.72 6.72-6.72a.75.75 0 011.06 0z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
+                )}
+            </div>
 
             {categories.length === 0 && (
               <p className="mt-1 text-xs text-gray-500">
