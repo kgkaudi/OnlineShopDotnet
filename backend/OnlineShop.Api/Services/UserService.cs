@@ -19,7 +19,8 @@ public class UserService : IUserService
 
     private static bool IsValidObjectId(string id)
     {
-        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+        return !string.IsNullOrWhiteSpace(id)
+            && ObjectId.TryParse(id, out _);
     }
 
     private static bool IsValidRole(string role)
@@ -42,19 +43,25 @@ public class UserService : IUserService
     // GET ALL
     // ---------------------------------------------------------
 
-    public async Task<List<User>> GetAllAsync() =>
-        await _repo.GetAllAsync();
+    public async Task<List<User>> GetAllAsync()
+    {
+        return await _repo.GetAllAsync();
+    }
 
     // ---------------------------------------------------------
-    // GET BY ID (with authorization)
+    // GET BY ID
     // ---------------------------------------------------------
 
-    public async Task<User?> GetByIdAsync(string id, string currentUserId, bool isAdmin)
+    public async Task<User?> GetByIdAsync(
+        string id,
+        string currentUserId,
+        bool isAdmin)
     {
         if (!IsValidObjectId(id))
             return null;
 
         var user = await _repo.GetByIdAsync(id);
+
         if (user == null)
             return null;
 
@@ -65,46 +72,74 @@ public class UserService : IUserService
     }
 
     // ---------------------------------------------------------
-    // CREATE (required by tests)
+    // CREATE
     // ---------------------------------------------------------
 
     public async Task<User?> CreateAsync(User user)
     {
-        // ---------------------------------------------------------
-        // VALIDATION (tests expect null for invalid user)
-        // ---------------------------------------------------------
-        if (user == null)
+        if (!IsValidUser(user))
             return null;
 
-        if (string.IsNullOrWhiteSpace(user.Email))
-            return null;
-
-        // Trim email (tests require this)
         user.Email = user.Email.Trim();
 
-        // ---------------------------------------------------------
-        // VALIDATE PASSWORD HASH (tests expect null if missing)
-        // ---------------------------------------------------------
         if (string.IsNullOrWhiteSpace(user.PasswordHash))
             return null;
 
-        // ---------------------------------------------------------
-        // GENERATE ID IF MISSING
-        // ---------------------------------------------------------
-        if (string.IsNullOrWhiteSpace(user.Id) || !IsValidObjectId(user.Id))
+        // Generate a valid Mongo ObjectId when necessary.
+        if (string.IsNullOrWhiteSpace(user.Id) ||
+            !IsValidObjectId(user.Id))
+        {
             user.Id = ObjectId.GenerateNewId().ToString();
+        }
 
-        // ---------------------------------------------------------
-        // DUPLICATE EMAIL CHECK (case-insensitive)
-        // ---------------------------------------------------------
-        var all = await _repo.GetAllAsync();
-        if (all.Any(u => u.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase)))
+        // Prevent duplicate email addresses.
+        var allUsers = await _repo.GetAllAsync();
+
+        var emailExists = allUsers.Any(existingUser =>
+            !string.IsNullOrWhiteSpace(existingUser.Email) &&
+            existingUser.Email.Equals(
+                user.Email,
+                StringComparison.OrdinalIgnoreCase));
+
+        if (emailExists)
             return null;
 
-        // ---------------------------------------------------------
-        // CREATE USER
-        // ---------------------------------------------------------
+        // Ensure every new user has the default role.
+        if (user.Roles == null || user.Roles.Count == 0)
+        {
+            user.Roles = new List<string> { "User" };
+        }
+        else
+        {
+            // Clean supplied roles.
+            user.Roles = user.Roles
+                .Where(role => !string.IsNullOrWhiteSpace(role))
+                .Select(role => role.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            // If all supplied roles were empty/whitespace,
+            // fall back to the default User role.
+            if (user.Roles.Count == 0)
+                user.Roles = new List<string> { "User" };
+        }
+
+        // Initialize timestamps only when they haven't
+        // already been supplied.
+        if (user.CreatedAt == default)
+            user.CreatedAt = DateTime.UtcNow;
+
+        if (user.UpdatedAt == default)
+            user.UpdatedAt = user.CreatedAt;
+
+        // IMPORTANT:
+        // Do not overwrite IsEmailVerified here.
+        //
+        // User defaults it to false, but an explicitly supplied
+        // true value must be preserved.
+
         await _repo.CreateAsync(user);
+
         return user;
     }
 
@@ -112,7 +147,9 @@ public class UserService : IUserService
     // ADD ROLE
     // ---------------------------------------------------------
 
-    public async Task<bool> AddRoleAsync(string userId, string role)
+    public async Task<bool> AddRoleAsync(
+        string userId,
+        string role)
     {
         if (!IsValidObjectId(userId))
             return false;
@@ -120,13 +157,23 @@ public class UserService : IUserService
         if (!IsValidRole(role))
             return false;
 
+        role = role.Trim();
+
         var existing = await _repo.GetByIdAsync(userId);
+
         if (existing == null)
             return false;
 
-        // Prevent duplicate roles
-        if (existing.Roles != null && existing.Roles.Contains(role))
+        var existingRoles = existing.Roles ?? new List<string>();
+
+        // Prevent duplicate roles.
+        if (existingRoles.Any(existingRole =>
+            existingRole.Equals(
+                role,
+                StringComparison.OrdinalIgnoreCase)))
+        {
             return true;
+        }
 
         return await _repo.AddRoleAsync(userId, role);
     }
@@ -138,7 +185,10 @@ public class UserService : IUserService
     public async Task<User?> UpdateProfileAsync(
         string id,
         string fullName,
-        string email)
+        string email,
+        string? phoneNumber,
+        Address? shippingAddress,
+        Address? billingAddress)
     {
         if (!IsValidObjectId(id))
             return null;
@@ -157,18 +207,104 @@ public class UserService : IUserService
         if (existing == null)
             return null;
 
-        // Prevent duplicate email addresses
-        var all = await _repo.GetAllAsync();
+        // -----------------------------------------------------
+        // Email uniqueness
+        // -----------------------------------------------------
 
-        var emailAlreadyExists = all.Any(u =>
-            u.Id != id &&
-            u.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+        var allUsers = await _repo.GetAllAsync();
+
+        var emailAlreadyExists = allUsers.Any(user =>
+            user.Id != id &&
+            !string.IsNullOrWhiteSpace(user.Email) &&
+            user.Email.Equals(
+                email,
+                StringComparison.OrdinalIgnoreCase));
 
         if (emailAlreadyExists)
             return null;
 
+        // -----------------------------------------------------
+        // Email verification
+        // -----------------------------------------------------
+
+        var emailChanged = !string.Equals(
+            existing.Email,
+            email,
+            StringComparison.OrdinalIgnoreCase);
+
+        // -----------------------------------------------------
+        // Preserve immutable fields
+        // -----------------------------------------------------
+
+        var originalCreatedAt = existing.CreatedAt;
+        var originalPasswordHash = existing.PasswordHash;
+
+        // -----------------------------------------------------
+        // Basic profile fields
+        // -----------------------------------------------------
+
         existing.FullName = fullName;
         existing.Email = email;
+
+        // Password is intentionally NOT changed here.
+        existing.PasswordHash = originalPasswordHash;
+
+        // CreatedAt is immutable.
+        existing.CreatedAt = originalCreatedAt;
+
+        // -----------------------------------------------------
+        // Phone number
+        // -----------------------------------------------------
+
+        // null means "not supplied" -> preserve existing value.
+        //
+        // whitespace means "explicitly clear" -> set null.
+        if (phoneNumber != null)
+        {
+            existing.PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber)
+                ? null
+                : phoneNumber.Trim();
+        }
+
+        // -----------------------------------------------------
+        // Shipping address
+        // -----------------------------------------------------
+
+        // null means "not supplied" -> preserve existing address.
+        if (shippingAddress != null)
+        {
+            existing.ShippingAddress = shippingAddress;
+        }
+
+        // -----------------------------------------------------
+        // Billing address
+        // -----------------------------------------------------
+
+        // null means "not supplied" -> preserve existing address.
+        if (billingAddress != null)
+        {
+            existing.BillingAddress = billingAddress;
+        }
+
+        // -----------------------------------------------------
+        // Email verification
+        // -----------------------------------------------------
+
+        // Changing email requires verification again.
+        if (emailChanged)
+        {
+            existing.IsEmailVerified = false;
+        }
+
+        // -----------------------------------------------------
+        // Updated timestamp
+        // -----------------------------------------------------
+
+        existing.UpdatedAt = DateTime.UtcNow;
+
+        // -----------------------------------------------------
+        // Persist
+        // -----------------------------------------------------
 
         var updated = await _repo.UpdateAsync(existing);
 

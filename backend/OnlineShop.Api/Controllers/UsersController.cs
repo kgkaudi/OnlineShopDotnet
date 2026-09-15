@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using OnlineShop.Api.Services;
 using MongoDB.Bson;
 using OnlineShop.Api.DTOs;
+using OnlineShop.Api.Models;
 
 namespace OnlineShop.Api.Controllers;
 
@@ -19,7 +20,9 @@ public class UsersController : ControllerBase
 
     private string? GetUserId()
     {
-        return User.FindFirst("sub")?.Value?.Trim();
+        return User.FindFirst("sub")?.Value?.Trim()
+            ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+                ?.Value?.Trim();
     }
 
     private bool IsValidObjectId(string? id)
@@ -43,7 +46,8 @@ public class UsersController : ControllerBase
             return Forbid();
 
         var users = await _service.GetAllAsync();
-        return Ok(users);
+
+        return Ok(users.Select(MapUserResponse));
     }
 
     // ---------------------------------------------------------
@@ -62,18 +66,21 @@ public class UsersController : ControllerBase
 
         var isAdmin = IsAdmin();
 
-        // Fetch with unrestricted visibility (bypass the ownership check inside
-        // the service) so we can tell "doesn't exist" (NotFound) apart from
-        // "exists but isn't yours" (Forbid) — the service itself returns null
-        // for both cases when queried with the real caller's identity.
-        var existenceCheck = await _service.GetByIdAsync(id!, id!, true);
+        // Fetch without ownership restriction so we can distinguish
+        // between NotFound and Forbid.
+        var existenceCheck = await _service.GetByIdAsync(
+            id!,
+            id!,
+            true
+        );
+
         if (existenceCheck == null)
             return NotFound("User not found.");
 
         if (!isAdmin && currentUserId != id)
             return Forbid();
 
-        return Ok(existenceCheck);
+        return Ok(MapUserResponse(existenceCheck));
     }
 
     // ---------------------------------------------------------
@@ -92,15 +99,19 @@ public class UsersController : ControllerBase
         if (string.IsNullOrWhiteSpace(role))
             return BadRequest("Role is required.");
 
-        var success = await _service.AddRoleAsync(id!, role.Trim());
+        role = role.Trim();
+
+        var success = await _service.AddRoleAsync(id!, role);
+
         if (!success)
             return NotFound("User not found.");
 
-        return Ok(new { message = $"Role '{role.Trim()}' added to user {id}" });
+        return Ok(new { message = $"Role '{role}' added to user {id}" });
     }
 
     // ---------------------------------------------------------
-    // UPDATE USER PROFILE (Admin or the user themselves)
+    // UPDATE USER PROFILE
+    // Admin or the user themselves
     // ---------------------------------------------------------
     [Authorize]
     [HttpPut("{id}")]
@@ -132,22 +143,33 @@ public class UsersController : ControllerBase
         if (!dto.Email.Contains("@"))
             return BadRequest("Invalid email format.");
 
+        // -----------------------------------------------------
+        // Validate phone number if supplied
+        // -----------------------------------------------------
+
+        if (dto.PhoneNumber != null &&
+            string.IsNullOrWhiteSpace(dto.PhoneNumber))
+        {
+            dto.PhoneNumber = null;
+        }
+
+        // -----------------------------------------------------
+        // UPDATE
+        // -----------------------------------------------------
+
         var updatedUser = await _service.UpdateProfileAsync(
             id!,
             dto.FullName.Trim(),
-            dto.Email.Trim()
+            dto.Email.Trim(),
+            dto.PhoneNumber,
+            dto.ShippingAddress,
+            dto.BillingAddress
         );
 
         if (updatedUser == null)
-            return NotFound("User not found.");
+            return NotFound("User not found or email already exists.");
 
-        return Ok(new
-        {
-            id = updatedUser.Id,
-            email = updatedUser.Email,
-            fullName = updatedUser.FullName,
-            roles = updatedUser.Roles
-        });
+        return Ok(MapUserResponse(updatedUser));
     }
 
     // ---------------------------------------------------------
@@ -168,5 +190,25 @@ public class UsersController : ControllerBase
             return NotFound("User not found.");
 
         return Ok(new { message = "User deleted successfully" });
+    }
+
+    // ---------------------------------------------------------
+    // USER RESPONSE MAPPING
+    // ---------------------------------------------------------
+    private static object MapUserResponse(User user)
+    {
+        return new
+        {
+            id = user.Id,
+            email = user.Email,
+            fullName = user.FullName,
+            roles = user.Roles,
+            phoneNumber = user.PhoneNumber,
+            shippingAddress = user.ShippingAddress,
+            billingAddress = user.BillingAddress,
+            createdAt = user.CreatedAt,
+            updatedAt = user.UpdatedAt,
+            isEmailVerified = user.IsEmailVerified
+        };
     }
 }
