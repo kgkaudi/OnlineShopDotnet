@@ -7,13 +7,54 @@ import { useSnackbar } from "@/src/context/SnackbarContext";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [addingProductId, setAddingProductId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const { showSnackbar } = useSnackbar();
 
+  function getQuantity(productId: string) {
+    return quantities[productId] ?? 1;
+  }
+
+  function changeQuantity(
+    productId: string,
+    quantity: number,
+    stockQuantity?: number
+  ) {
+    let nextQuantity = Math.max(1, quantity);
+
+    if (typeof stockQuantity === "number") {
+      nextQuantity = Math.min(nextQuantity, stockQuantity);
+    }
+
+    setQuantities((current) => ({
+      ...current,
+      [productId]: nextQuantity,
+    }));
+  }
+
   async function addToCart(productId: string) {
     try {
+      const product = products.find((item) => item.id === productId);
+      const quantity = getQuantity(productId);
+
+      if (product?.stockQuantity === 0) {
+        showSnackbar("This product is out of stock.", "error");
+        return;
+      }
+
+      if (
+        typeof product?.stockQuantity === "number" &&
+        quantity > product.stockQuantity
+      ) {
+        showSnackbar(
+          `Only ${product.stockQuantity} item(s) are available.`,
+          "error"
+        );
+        return;
+      }
+
       setAddingProductId(productId);
 
       const token = localStorage.getItem("token");
@@ -23,8 +64,12 @@ export default function ProductsPage() {
         return;
       }
 
-      await api.addToCart(productId, 1);
-      showSnackbar("Added to cart 🛒", "success");
+      await api.addToCart(productId, quantity);
+
+      showSnackbar(
+        `${quantity} ${quantity === 1 ? "item" : "items"} added to cart 🛒`,
+        "success"
+      );
     } catch (err) {
       console.error(err);
       showSnackbar(
@@ -72,7 +117,16 @@ export default function ProductsPage() {
   useEffect(() => {
     api
       .getProducts()
-      .then((items) => setProducts(items))
+      .then((items) => {
+        setProducts(items);
+
+        const initialQuantities: Record<string, number> = {};
+        items.forEach((product) => {
+          initialQuantities[product.id] = 1;
+        });
+
+        setQuantities(initialQuantities);
+      })
       .catch((err) => setError(err.message || "Failed to load products"))
       .finally(() => setLoading(false));
   }, []);
@@ -93,50 +147,124 @@ export default function ProductsPage() {
 
       {!loading && !error && products.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product) => (
-            <div
-              key={product.id}
-              className="border rounded p-4 bg-white shadow-sm hover:shadow-md transition"
-            >
-              <h2 className="font-semibold text-lg">{product.name}</h2>
+          {products.map((product) => {
+            const quantity = getQuantity(product.id);
+            const outOfStock = product.stockQuantity === 0;
+            const maxStock =
+              typeof product.stockQuantity === "number"
+                ? product.stockQuantity
+                : undefined;
 
-              <p className="text-gray-600 mt-1">
-                {product.description || "No description available."}
-              </p>
+            return (
+              <div
+                key={product.id}
+                className="border rounded p-4 bg-white shadow-sm hover:shadow-md transition"
+              >
+                <h2 className="font-semibold text-lg">{product.name}</h2>
 
-              <p className="text-black font-bold mt-3">
-                €{Number(product.price).toFixed(2)}
-              </p>
-
-              {typeof product.stockQuantity === "number" && (
-                <p className="text-sm text-gray-500 mt-1">
-                  {product.stockQuantity > 0
-                    ? `${product.stockQuantity} in stock`
-                    : "Out of stock"}
+                <p className="text-gray-600 mt-1">
+                  {product.description || "No description available."}
                 </p>
-              )}
 
-              <button
-                onClick={() => addToCart(product.id)}
-                disabled={
-                  addingProductId === product.id ||
-                  product.stockQuantity === 0
-                }
-                className="mt-4 w-full bg-black text-white py-3 rounded text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {addingProductId === product.id
-                  ? "Adding..."
-                  : "Add to Cart"}
-              </button>
+                <p className="text-black font-bold mt-3">
+                  €{Number(product.price).toFixed(2)}
+                </p>
 
-              <button
-                onClick={() => addToWishlist(product.id)}
-                className="mt-2 w-full border border-gray-300 py-3 rounded text-sm sm:text-base hover:bg-gray-100"
-              >
-                ❤️ Add to Wishlist
-              </button>
-            </div>
-          ))}
+                {typeof product.stockQuantity === "number" && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {product.stockQuantity > 0
+                      ? `${product.stockQuantity} in stock`
+                      : "Out of stock"}
+                  </p>
+                )}
+
+                {!outOfStock && (
+                  <div className="mt-4">
+                    <label
+                      htmlFor={`quantity-${product.id}`}
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      Quantity
+                    </label>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          changeQuantity(
+                            product.id,
+                            quantity - 1,
+                            maxStock
+                          )
+                        }
+                        disabled={quantity <= 1}
+                        className="w-10 h-10 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        aria-label={`Decrease quantity of ${product.name}`}
+                      >
+                        −
+                      </button>
+
+                      <input
+                        id={`quantity-${product.id}`}
+                        type="number"
+                        min={1}
+                        max={maxStock}
+                        value={quantity}
+                        onChange={(e) =>
+                          changeQuantity(
+                            product.id,
+                            Number(e.target.value),
+                            maxStock
+                          )
+                        }
+                        className="w-20 h-10 text-center border border-gray-300 rounded"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          changeQuantity(
+                            product.id,
+                            quantity + 1,
+                            maxStock
+                          )
+                        }
+                        disabled={
+                          typeof maxStock === "number" &&
+                          quantity >= maxStock
+                        }
+                        className="w-10 h-10 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        aria-label={`Increase quantity of ${product.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => addToCart(product.id)}
+                  disabled={
+                    addingProductId === product.id ||
+                    outOfStock ||
+                    quantity < 1
+                  }
+                  className="mt-4 w-full bg-black text-white py-3 rounded text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {addingProductId === product.id
+                    ? "Adding..."
+                    : `Add ${quantity} to Cart`}
+                </button>
+
+                <button
+                  onClick={() => addToWishlist(product.id)}
+                  className="mt-2 w-full border border-gray-300 py-3 rounded text-sm sm:text-base hover:bg-gray-100"
+                >
+                  ❤️ Add to Wishlist
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </Container>
