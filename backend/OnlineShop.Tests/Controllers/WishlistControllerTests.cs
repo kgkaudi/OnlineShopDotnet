@@ -83,7 +83,7 @@ public class WishlistControllerTests
         var result = await controller.Get();
 
         result.Should().BeOfType<OkObjectResult>()
-            .Which.Value.Should().BeAssignableTo<List<WishlistItem>>()
+            .Which.Value.Should().BeAssignableTo<List<WishlistItemResponse>>()
             .Subject.Should().BeEmpty();
     }
 
@@ -96,7 +96,10 @@ public class WishlistControllerTests
     {
         var controller = CreateController(new FakeWishlistService(), null);
 
-        var result = await controller.Add(ObjectId.GenerateNewId().ToString());
+        var result = await controller.Add(new WishlistController.WishlistAddRequest
+        {
+            ProductId = ObjectId.GenerateNewId().ToString()
+        });
 
         result.Should().BeOfType<UnauthorizedObjectResult>();
     }
@@ -106,7 +109,10 @@ public class WishlistControllerTests
     {
         var controller = CreateController(new FakeWishlistService(), "invalid-id");
 
-        var result = await controller.Add(ObjectId.GenerateNewId().ToString());
+        var result = await controller.Add(new WishlistController.WishlistAddRequest
+        {
+            ProductId = ObjectId.GenerateNewId().ToString()
+        });
 
         result.Should().BeOfType<UnauthorizedObjectResult>();
     }
@@ -116,7 +122,10 @@ public class WishlistControllerTests
     {
         var controller = CreateController(new FakeWishlistService(), ObjectId.GenerateNewId().ToString());
 
-        var result = await controller.Add("invalid-id");
+        var result = await controller.Add(new WishlistController.WishlistAddRequest
+        {
+            ProductId = "invalid-id"
+        });
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -126,7 +135,10 @@ public class WishlistControllerTests
     {
         var controller = CreateController(new FakeWishlistService(), ObjectId.GenerateNewId().ToString());
 
-        var result = await controller.Add(null!);
+        var result = await controller.Add(new WishlistController.WishlistAddRequest
+        {
+            ProductId = null!
+        });
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -136,7 +148,10 @@ public class WishlistControllerTests
     {
         var controller = CreateController(new FakeWishlistService(), ObjectId.GenerateNewId().ToString());
 
-        var result = await controller.Add("");
+        var result = await controller.Add(new WishlistController.WishlistAddRequest
+        {
+            ProductId = ""
+        });
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -149,7 +164,10 @@ public class WishlistControllerTests
 
         var productId = ObjectId.GenerateNewId().ToString();
 
-        var result = await controller.Add(productId);
+        var result = await controller.Add(new WishlistController.WishlistAddRequest
+        {
+            ProductId = productId
+        });
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
@@ -170,7 +188,10 @@ public class WishlistControllerTests
 
         var controller = CreateController(service, userId);
 
-        var result = await controller.Add(productId);
+        var result = await controller.Add(new WishlistController.WishlistAddRequest
+        {
+            ProductId = productId
+        });
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
@@ -186,7 +207,10 @@ public class WishlistControllerTests
 
         var controller = CreateController(service, userId);
 
-        var result = await controller.Add(productId);
+        var result = await controller.Add(new WishlistController.WishlistAddRequest
+        {
+            ProductId = productId
+        });
 
         result.Should().BeOfType<OkObjectResult>();
     }
@@ -202,8 +226,14 @@ public class WishlistControllerTests
 
         var controller = CreateController(service, userId);
 
-        var first = await controller.Add(productId);
-        var second = await controller.Add(productId);
+        var first = await controller.Add(new WishlistController.WishlistAddRequest
+        {
+            ProductId = productId
+        });
+        var second = await controller.Add(new WishlistController.WishlistAddRequest
+        {
+            ProductId = productId
+        });
 
         first.Should().BeOfType<OkObjectResult>();
         second.Should().BeOfType<OkObjectResult>();
@@ -218,7 +248,10 @@ public class WishlistControllerTests
     {
         var controller = CreateController(new FakeWishlistService(), null);
 
-        var result = await controller.Remove(ObjectId.GenerateNewId().ToString());
+        var result = await controller.Remove(new WishlistController.WishlistRemoveRequest
+        {
+            ProductId = ObjectId.GenerateNewId().ToString()
+        });
 
         result.Should().BeOfType<UnauthorizedObjectResult>();
     }
@@ -228,7 +261,10 @@ public class WishlistControllerTests
     {
         var controller = CreateController(new FakeWishlistService(), "invalid-id");
 
-        var result = await controller.Remove(ObjectId.GenerateNewId().ToString());
+        var result = await controller.Remove(new WishlistController.WishlistRemoveRequest
+        {
+            ProductId = ObjectId.GenerateNewId().ToString()
+        });
 
         result.Should().BeOfType<UnauthorizedObjectResult>();
     }
@@ -238,7 +274,10 @@ public class WishlistControllerTests
     {
         var controller = CreateController(new FakeWishlistService(), ObjectId.GenerateNewId().ToString());
 
-        var result = await controller.Remove("invalid-id");
+        var result = await controller.Remove(new WishlistController.WishlistRemoveRequest
+        {
+            ProductId = "invalid-id"
+        });
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -248,7 +287,10 @@ public class WishlistControllerTests
     {
         var controller = CreateController(new FakeWishlistService(), ObjectId.GenerateNewId().ToString());
 
-        var result = await controller.Remove(null!);
+        var result = await controller.Remove(new WishlistController.WishlistRemoveRequest
+        {
+            ProductId = null!
+        });
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -258,7 +300,10 @@ public class WishlistControllerTests
     {
         var controller = CreateController(new FakeWishlistService(), ObjectId.GenerateNewId().ToString());
 
-        var result = await controller.Remove("");
+        var result = await controller.Remove(new WishlistController.WishlistRemoveRequest
+        {
+            ProductId = ""
+        });
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -271,7 +316,10 @@ public class WishlistControllerTests
 
         var controller = CreateController(new FakeWishlistService(), userId);
 
-        var result = await controller.Remove(productId);
+        var result = await controller.Remove(new WishlistController.WishlistRemoveRequest
+        {
+            ProductId = productId
+        });
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
@@ -287,7 +335,10 @@ public class WishlistControllerTests
 
         var controller = CreateController(service, userId);
 
-        var result = await controller.Remove(productId);
+        var result = await controller.Remove(new WishlistController.WishlistRemoveRequest
+        {
+            ProductId = productId
+        });
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
@@ -304,7 +355,10 @@ public class WishlistControllerTests
 
         var controller = CreateController(service, userId);
 
-        var result = await controller.Remove(productId);
+        var result = await controller.Remove(new WishlistController.WishlistRemoveRequest
+        {
+            ProductId = productId
+        });
 
         result.Should().BeOfType<OkObjectResult>();
     }
@@ -321,8 +375,14 @@ public class WishlistControllerTests
 
         var controller = CreateController(service, userId);
 
-        var first = await controller.Remove(productId);
-        var second = await controller.Remove(productId);
+        var first = await controller.Remove(new WishlistController.WishlistRemoveRequest
+        {
+            ProductId = productId
+        });
+        var second = await controller.Remove(new WishlistController.WishlistRemoveRequest
+        {
+            ProductId = productId
+        });
 
         first.Should().BeOfType<OkObjectResult>();
         second.Should().BeOfType<NotFoundObjectResult>();
@@ -363,12 +423,21 @@ public class FakeWishlistService : IWishlistService
         });
     }
 
-    public Task<List<WishlistItem>> GetUserWishlistAsync(string userId)
+    public Task<List<WishlistItemResponse>> GetUserWishlistAsync(string userId)
     {
-        if (_wishlists.ContainsKey(userId))
-            return Task.FromResult(_wishlists[userId]);
+        if (!_wishlists.ContainsKey(userId))
+            return Task.FromResult(new List<WishlistItemResponse>());
 
-        return Task.FromResult(new List<WishlistItem>());
+        var result = _wishlists[userId].Select(item => new WishlistItemResponse
+        {
+            ProductId = item.ProductId,
+            ProductName = "Test Product",
+            ProductDescription = "",
+            ProductPrice = 0,
+            AddedAt = item.AddedAt
+        }).ToList();
+
+        return Task.FromResult(result);
     }
 
     public bool ForceAddFailure { get; set; } = false;

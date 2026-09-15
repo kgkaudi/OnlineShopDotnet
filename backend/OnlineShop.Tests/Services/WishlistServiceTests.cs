@@ -10,6 +10,7 @@ public class WishlistServiceTests : RepositoryTestBase
 {
     private readonly WishlistService _service;
     private readonly WishlistRepository _repo;
+    private readonly ProductRepository _productRepo;
     private readonly IMongoCollection<WishlistItem> _wishlist;
 
     public WishlistServiceTests(MongoTestFixture fixture)
@@ -21,10 +22,12 @@ public class WishlistServiceTests : RepositoryTestBase
         );
 
         _repo = new WishlistRepository(config);
-        _service = new WishlistService(_repo);
+        _productRepo = new ProductRepository(config);
+        _service = new WishlistService(_repo, _productRepo);
 
         _wishlist = Fixture.Database.GetCollection<WishlistItem>("Wishlist");
         Fixture.Database.DropCollection("Wishlist");
+        Fixture.Database.DropCollection("Products");
     }
 
     // ---------------------------------------------------------
