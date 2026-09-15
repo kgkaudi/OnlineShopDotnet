@@ -1,5 +1,5 @@
-using MongoDB.Driver;
 using MongoDB.Bson;
+using MongoDB.Driver;
 using OnlineShop.Api.Models;
 
 namespace OnlineShop.Api.Repositories;
@@ -11,15 +11,17 @@ public class CategoryRepository : ICategoryRepository
     public CategoryRepository(IConfiguration config)
     {
         var connectionString = config["MongoDB:ConnectionString"]
-            ?? throw new InvalidOperationException("MongoDB:ConnectionString missing in configuration.");
+            ?? throw new InvalidOperationException(
+                "MongoDB:ConnectionString missing in configuration.");
 
         var dbName = config["MongoDB:DatabaseName"]
-            ?? throw new InvalidOperationException("MongoDB:DatabaseName missing in configuration.");
+            ?? throw new InvalidOperationException(
+                "MongoDB:DatabaseName missing in configuration.");
 
         var client = new MongoClient(connectionString);
-        var db = client.GetDatabase(dbName);
+        var database = client.GetDatabase(dbName);
 
-        _categories = db.GetCollection<Category>("Categories");
+        _categories = database.GetCollection<Category>("Category");
     }
 
     // ---------------------------------------------------------
@@ -35,7 +37,9 @@ public class CategoryRepository : ICategoryRepository
             throw new ArgumentNullException(nameof(category.Name));
 
         if (string.IsNullOrWhiteSpace(category.Id))
+        {
             category.Id = ObjectId.GenerateNewId().ToString();
+        }
 
         await _categories.InsertOneAsync(category);
     }
@@ -44,8 +48,12 @@ public class CategoryRepository : ICategoryRepository
     // READ
     // ---------------------------------------------------------
 
-    public async Task<List<Category>> GetAllAsync() =>
-        await _categories.Find(_ => true).ToListAsync();
+    public async Task<List<Category>> GetAllAsync()
+    {
+        return await _categories
+            .Find(FilterDefinition<Category>.Empty)
+            .ToListAsync();
+    }
 
     public async Task<Category?> GetByIdAsync(string id)
     {
@@ -55,7 +63,9 @@ public class CategoryRepository : ICategoryRepository
         if (!ObjectId.TryParse(id, out _))
             return null;
 
-        return await _categories.Find(c => c.Id == id).FirstOrDefaultAsync();
+        return await _categories
+            .Find(category => category.Id == id)
+            .FirstOrDefaultAsync();
     }
 
     // ---------------------------------------------------------
@@ -77,16 +87,18 @@ public class CategoryRepository : ICategoryRepository
             return false;
 
         var existing = await GetByIdAsync(category.Id);
+
         if (existing == null)
             return false;
 
         var result = await _categories.ReplaceOneAsync(
-            c => c.Id == category.Id,
+            existingCategory =>
+                existingCategory.Id == category.Id,
             category
         );
 
-        // Must be BOTH matched AND modified
-        return result.MatchedCount == 1 && result.ModifiedCount == 1;
+        return result.MatchedCount == 1 &&
+               result.ModifiedCount == 1;
     }
 
     // ---------------------------------------------------------
@@ -101,7 +113,9 @@ public class CategoryRepository : ICategoryRepository
         if (!ObjectId.TryParse(id, out _))
             return false;
 
-        var result = await _categories.DeleteOneAsync(c => c.Id == id);
+        var result = await _categories.DeleteOneAsync(
+            category => category.Id == id
+        );
 
         return result.DeletedCount == 1;
     }

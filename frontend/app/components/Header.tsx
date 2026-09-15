@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
 import { useAuthStore } from "@/src/store/authStore";
 import { logout as logoutApi } from "@/src/api/auth";
 import { clientIsAdmin } from "@/src/lib/api";
-import { useEffect, useState } from "react";
 
 export default function Header() {
   const router = useRouter();
@@ -27,6 +28,10 @@ export default function Header() {
     }
   }, [isLoggedIn]);
 
+  function closeMenu() {
+    setMenuOpen(false);
+  }
+
   async function handleLogout() {
     try {
       await logoutApi();
@@ -42,15 +47,15 @@ export default function Header() {
   }
 
   return (
-    <header className="border-b bg-white sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+    <header className="sticky top-0 z-50 border-b bg-white">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         {/* Logo */}
         <Link href="/" className="text-xl font-bold">
           OnlineShop
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6 text-sm">
+        <nav className="hidden items-center gap-6 text-sm md:flex">
           <Link
             href="/products"
             className="text-black hover:underline"
@@ -72,9 +77,15 @@ export default function Header() {
             Wishlist
           </Link>
 
-          {/* Logged-in user */}
           {hydrated && isLoggedIn && (
             <>
+              <Link
+                href="/orders"
+                className="text-black hover:underline"
+              >
+                Orders
+              </Link>
+
               <Link
                 href="/profile"
                 className="text-black hover:underline"
@@ -82,14 +93,22 @@ export default function Header() {
                 Profile
               </Link>
 
-              {/* Admin */}
               {isAdmin && (
-                <Link
-                  href="/admin/users"
-                  className="font-semibold text-black hover:underline"
-                >
-                  Admin
-                </Link>
+                <>
+                  <Link
+                    href="/admin/users"
+                    className="font-semibold text-black hover:underline"
+                  >
+                    Users Admin
+                  </Link>
+
+                  <Link
+                    href="/admin/products"
+                    className="font-semibold text-black hover:underline"
+                  >
+                    Products Admin
+                  </Link>
+                </>
               )}
             </>
           )}
@@ -108,6 +127,7 @@ export default function Header() {
 
               {isLoggedIn && (
                 <button
+                  type="button"
                   onClick={handleLogout}
                   className="text-black hover:underline"
                 >
@@ -121,7 +141,7 @@ export default function Header() {
         {/* Mobile Hamburger */}
         <button
           type="button"
-          className="md:hidden p-2 border rounded"
+          className="rounded border p-2 md:hidden"
           onClick={() => setMenuOpen(true)}
           aria-label="Open navigation menu"
           aria-expanded={menuOpen}
@@ -130,27 +150,27 @@ export default function Header() {
         </button>
       </div>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile Overlay */}
       {menuOpen && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
-          onClick={() => setMenuOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+          onClick={closeMenu}
           aria-hidden="true"
         />
       )}
 
       {/* Mobile Slide-in Menu */}
       <div
-        className={`fixed top-0 right-0 w-64 h-full bg-white shadow-lg z-50 transform transition-transform duration-300 ease-out ${
+        className={`fixed right-0 top-0 z-50 h-full w-64 transform bg-white shadow-lg transition-transform duration-300 ease-out ${
           menuOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="p-6 flex flex-col space-y-4 text-lg">
+        <div className="flex flex-col space-y-4 p-6 text-lg">
           {/* Close */}
           <button
             type="button"
-            onClick={() => setMenuOpen(false)}
-            className="self-end text-2xl leading-none mb-2"
+            onClick={closeMenu}
+            className="mb-2 self-end text-2xl leading-none"
             aria-label="Close navigation menu"
           >
             ×
@@ -158,7 +178,7 @@ export default function Header() {
 
           <Link
             href="/"
-            onClick={() => setMenuOpen(false)}
+            onClick={closeMenu}
             className="block"
           >
             Home
@@ -166,7 +186,7 @@ export default function Header() {
 
           <Link
             href="/products"
-            onClick={() => setMenuOpen(false)}
+            onClick={closeMenu}
             className="block"
           >
             Products
@@ -174,7 +194,7 @@ export default function Header() {
 
           <Link
             href="/cart"
-            onClick={() => setMenuOpen(false)}
+            onClick={closeMenu}
             className="block"
           >
             Cart
@@ -182,43 +202,65 @@ export default function Header() {
 
           <Link
             href="/wishlist"
-            onClick={() => setMenuOpen(false)}
+            onClick={closeMenu}
             className="block"
           >
             Wishlist
           </Link>
 
-          {/* Logged-in user */}
           {hydrated && isLoggedIn && (
             <>
               <Link
+                href="/orders"
+                onClick={closeMenu}
+                className="block"
+              >
+                Orders
+              </Link>
+
+              <Link
                 href="/profile"
-                onClick={() => setMenuOpen(false)}
+                onClick={closeMenu}
                 className="block"
               >
                 Profile
               </Link>
 
-              {/* Admin */}
               {isAdmin && (
-                <Link
-                  href="/admin/users"
-                  onClick={() => setMenuOpen(false)}
-                  className="block font-semibold"
-                >
-                  Admin
-                </Link>
+                <div className="mt-2 border-t pt-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Admin
+                  </p>
+
+                  <div className="space-y-3">
+                    <Link
+                      href="/admin/users"
+                      onClick={closeMenu}
+                      className="block font-semibold"
+                    >
+                      Users Admin
+                    </Link>
+
+                    <Link
+                      href="/admin/products"
+                      onClick={closeMenu}
+                      className="block font-semibold"
+                    >
+                      Products Admin
+                    </Link>
+                  </div>
+                </div>
               )}
             </>
           )}
 
           {/* Authentication */}
           {hydrated && (
-            <>
+            <div className="mt-2 border-t pt-4">
               {!isLoggedIn && (
                 <Link
                   href="/auth/login"
-                  onClick={() => setMenuOpen(false)}
+                  onClick={closeMenu}
                   className="block"
                 >
                   Login
@@ -229,12 +271,12 @@ export default function Header() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="text-left w-full"
+                  className="w-full text-left"
                 >
                   Logout
                 </button>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>

@@ -10,14 +10,14 @@ public class CategoryService : ICategoryService
 
     public CategoryService(ICategoryRepository repo)
     {
-        _repo = repo;
+        _repo = repo ?? throw new ArgumentNullException(nameof(repo));
     }
 
     // ---------------------------------------------------------
     // VALIDATION HELPERS
     // ---------------------------------------------------------
 
-    private static string? NormalizeName(string name)
+    private static string? NormalizeName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name))
             return null;
@@ -25,52 +25,71 @@ public class CategoryService : ICategoryService
         return name.Trim();
     }
 
-    private static bool IsValidObjectId(string id)
+    private static bool IsValidObjectId(string? id)
     {
-        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+        return !string.IsNullOrWhiteSpace(id)
+               && ObjectId.TryParse(id, out _);
+    }
+
+    private static bool NamesEqual(string? first, string? second)
+    {
+        return string.Equals(
+            first?.Trim(),
+            second?.Trim(),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     // ---------------------------------------------------------
     // GET ALL
     // ---------------------------------------------------------
 
-    public async Task<List<Category>> GetAllAsync() =>
-        await _repo.GetAllAsync();
+    public async Task<List<Category>> GetAllAsync()
+    {
+        var categories = await _repo.GetAllAsync();
+
+        return categories ?? new List<Category>();
+    }
 
     // ---------------------------------------------------------
     // GET BY ID
     // ---------------------------------------------------------
 
-    public async Task<Category?> GetByIdAsync(string id)
+    public async Task<Category?> GetByIdAsync(string? id)
     {
         if (!IsValidObjectId(id))
             return null;
 
-        return await _repo.GetByIdAsync(id);
+        return await _repo.GetByIdAsync(id!.Trim());
     }
 
     // ---------------------------------------------------------
     // CREATE
     // ---------------------------------------------------------
 
-    public async Task<Category?> CreateAsync(string name)
+    public async Task<Category?> CreateAsync(string? name)
     {
-        var normalized = NormalizeName(name);
-        if (normalized == null)
+        var normalizedName = NormalizeName(name);
+
+        if (normalizedName == null)
             return null;
 
-        // Prevent duplicate names
-        var existing = await _repo.GetAllAsync();
-        if (existing.Any(c => c.Name.Equals(normalized, StringComparison.OrdinalIgnoreCase)))
+        // Prevent duplicate category names.
+        var existingCategories = await _repo.GetAllAsync();
+
+        if (existingCategories.Any(category =>
+                NamesEqual(category.Name, normalizedName)))
+        {
             return null;
+        }
 
         var category = new Category
         {
             Id = ObjectId.GenerateNewId().ToString(),
-            Name = normalized
+            Name = normalizedName
         };
 
         await _repo.CreateAsync(category);
+
         return category;
     }
 
@@ -78,42 +97,51 @@ public class CategoryService : ICategoryService
     // UPDATE
     // ---------------------------------------------------------
 
-    public async Task<bool> UpdateAsync(string id, string name)
+    public async Task<bool> UpdateAsync(string? id, string? name)
     {
         if (!IsValidObjectId(id))
             return false;
 
-        var normalized = NormalizeName(name);
-        if (normalized == null)
+        var normalizedName = NormalizeName(name);
+
+        if (normalizedName == null)
             return false;
 
-        var existing = await _repo.GetByIdAsync(id);
-        if (existing == null)
+        var normalizedId = id!.Trim();
+
+        var existingCategory = await _repo.GetByIdAsync(normalizedId);
+
+        if (existingCategory == null)
             return false;
 
-        // Prevent unchanged update
-        if (existing.Name.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+        // No change required.
+        if (NamesEqual(existingCategory.Name, normalizedName))
             return false;
 
-        // Prevent duplicate name
-        var all = await _repo.GetAllAsync();
-        if (all.Any(c => c.Id != id && c.Name.Equals(normalized, StringComparison.OrdinalIgnoreCase)))
+        // Prevent another category from using the same name.
+        var allCategories = await _repo.GetAllAsync();
+
+        var duplicateExists = allCategories.Any(category =>
+            !string.Equals(category.Id, normalizedId, StringComparison.OrdinalIgnoreCase) &&
+            NamesEqual(category.Name, normalizedName));
+
+        if (duplicateExists)
             return false;
 
-        existing.Name = normalized;
+        existingCategory.Name = normalizedName;
 
-        return await _repo.UpdateAsync(existing);
+        return await _repo.UpdateAsync(existingCategory);
     }
 
     // ---------------------------------------------------------
     // DELETE
     // ---------------------------------------------------------
 
-    public async Task<bool> DeleteAsync(string id)
+    public async Task<bool> DeleteAsync(string? id)
     {
         if (!IsValidObjectId(id))
             return false;
 
-        return await _repo.DeleteAsync(id);
+        return await _repo.DeleteAsync(id!.Trim());
     }
 }

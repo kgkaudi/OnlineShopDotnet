@@ -13,6 +13,27 @@ export interface Product {
   categoryId?: string | null;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+}
+
+export interface CreateProductRequest {
+  name: string;
+  description?: string | null;
+  price: number;
+  stockQuantity: number;
+  categoryId?: string | null;
+}
+
+export interface UpdateProductRequest {
+  name: string;
+  description?: string | null;
+  price: number;
+  stockQuantity: number;
+  categoryId?: string | null;
+}
+
 export interface CartItem {
   id: string;
   productId: string;
@@ -50,7 +71,6 @@ export interface UserProfile {
 
 /**
  * Admin user has the same safe fields as UserProfile.
- * Keep AdminUser as an alias so existing admin components can use it.
  */
 export type AdminUser = UserProfile;
 
@@ -102,7 +122,6 @@ async function request<T>(
 
   /*
    * Some successful endpoints may return an empty response.
-   * Avoid failing on response.json() in that case.
    */
   const contentType = response.headers.get("content-type");
 
@@ -127,10 +146,8 @@ export function getClientToken(): string | null {
 /**
  * Decode the JWT payload.
  *
- * This is only used to read the user ID on the client.
- * It does NOT validate the token.
- *
- * Token validation is still performed by the ASP.NET API.
+ * This does NOT validate the token.
+ * Token validation is performed by the ASP.NET API.
  */
 function getTokenPayload(): Record<string, unknown> | null {
   const token = getClientToken();
@@ -179,6 +196,7 @@ function getTokenPayload(): Record<string, unknown> | null {
  * Supports the claims used by the ASP.NET backend:
  * - sub
  * - NameIdentifier
+ * - nameid
  * - id
  * - userId
  */
@@ -209,9 +227,9 @@ export function getClientUserId(): string | null {
 }
 
 /**
- * Get the roles from the JWT when available.
+ * Get roles from the JWT.
  *
- * This is useful for UI decisions only.
+ * This is useful for frontend UI decisions only.
  * The backend remains responsible for authorization.
  */
 export function getClientRoles(): string[] {
@@ -234,7 +252,10 @@ export function getClientRoles(): string[] {
 
   if (Array.isArray(roleClaim)) {
     return roleClaim
-      .filter((role): role is string => typeof role === "string")
+      .filter(
+        (role): role is string =>
+          typeof role === "string",
+      )
       .map((role) => role.trim())
       .filter(Boolean);
   }
@@ -245,8 +266,8 @@ export function getClientRoles(): string[] {
 /**
  * Check whether the current JWT contains the Admin role.
  *
- * This is for frontend UI visibility only.
- * The API must still enforce [Authorize]/admin authorization.
+ * Frontend UI visibility only.
+ * The API must still enforce authorization.
  */
 export function clientIsAdmin(): boolean {
   return getClientRoles().some(
@@ -314,7 +335,7 @@ export const api = {
     ),
 
   // =========================================================
-  // PRODUCTS
+  // PRODUCTS - PUBLIC
   // =========================================================
 
   getProducts: () =>
@@ -323,6 +344,54 @@ export const api = {
   getProduct: (id: string) =>
     request<Product>(
       `/products/${encodeURIComponent(id)}`,
+    ),
+
+  // =========================================================
+  // PRODUCTS - ADMIN
+  // =========================================================
+
+  createProduct: (data: CreateProductRequest) =>
+    request<Product>(
+      "/products",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      getClientToken() || undefined,
+    ),
+
+  updateProduct: (
+    id: string,
+    data: UpdateProductRequest,
+  ) =>
+    request<Product>(
+      `/products/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      },
+      getClientToken() || undefined,
+    ),
+
+  deleteProduct: (id: string) =>
+    request<{ message: string }>(
+      `/products/${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+      },
+      getClientToken() || undefined,
+    ),
+
+  // =========================================================
+  // CATEGORIES
+  // =========================================================
+
+  getCategories: () =>
+    request<Category[]>("/categories"),
+
+  getCategory: (id: string) =>
+    request<Category>(
+      `/categories/${encodeURIComponent(id)}`,
     ),
 
   // =========================================================

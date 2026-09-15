@@ -18,8 +18,15 @@ public class CategoryRepositoryTests : RepositoryTestBase
         );
 
         _repo = new CategoryRepository(config);
+    }
 
-        Fixture.Database.DropCollection("Categories");
+    // ---------------------------------------------------------
+    // TEST SETUP
+    // ---------------------------------------------------------
+
+    private void ClearCategories()
+    {
+        Fixture.Database.DropCollection("Category");
     }
 
     // ---------------------------------------------------------
@@ -29,18 +36,26 @@ public class CategoryRepositoryTests : RepositoryTestBase
     [Fact]
     public async Task GetAllAsync_ShouldReturnEmptyList_WhenNoCategories()
     {
+        ClearCategories();
+
         var result = await _repo.GetAllAsync();
+
         result.Should().BeEmpty();
     }
 
     [Fact]
     public async Task GetAllAsync_ShouldReturnAllCategories()
     {
+        ClearCategories();
+
         await _repo.CreateAsync(new Category { Name = "A" });
         await _repo.CreateAsync(new Category { Name = "B" });
 
         var result = await _repo.GetAllAsync();
+
         result.Should().HaveCount(2);
+        result.Should().ContainSingle(c => c.Name == "A");
+        result.Should().ContainSingle(c => c.Name == "B");
     }
 
     // ---------------------------------------------------------
@@ -50,42 +65,62 @@ public class CategoryRepositoryTests : RepositoryTestBase
     [Fact]
     public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsNull()
     {
+        ClearCategories();
+
         var result = await _repo.GetByIdAsync(null!);
+
         result.Should().BeNull();
     }
 
     [Fact]
     public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsWhitespace()
     {
+        ClearCategories();
+
         var result = await _repo.GetByIdAsync("   ");
+
         result.Should().BeNull();
     }
 
     [Fact]
     public async Task GetByIdAsync_ShouldReturnNull_WhenIdIsInvalid()
     {
+        ClearCategories();
+
         var result = await _repo.GetByIdAsync("invalid-id");
+
         result.Should().BeNull();
     }
 
     [Fact]
     public async Task GetByIdAsync_ShouldReturnNull_WhenCategoryDoesNotExist()
     {
+        ClearCategories();
+
         var id = ObjectId.GenerateNewId().ToString();
+
         var result = await _repo.GetByIdAsync(id);
+
         result.Should().BeNull();
     }
 
     [Fact]
     public async Task GetByIdAsync_ShouldReturnCategory_WhenExists()
     {
-        var category = new Category { Name = "Electronics" };
+        ClearCategories();
+
+        var category = new Category
+        {
+            Name = "Electronics"
+        };
+
         await _repo.CreateAsync(category);
 
         var result = await _repo.GetByIdAsync(category.Id);
 
         result.Should().NotBeNull();
-        result!.Name.Should().Be("Electronics");
+        result!.Id.Should().Be(category.Id);
+        result.Name.Should().Be("Electronics");
     }
 
     // ---------------------------------------------------------
@@ -95,27 +130,48 @@ public class CategoryRepositoryTests : RepositoryTestBase
     [Fact]
     public async Task CreateAsync_ShouldThrow_WhenCategoryIsNull()
     {
-        Func<Task> act = async () => await _repo.CreateAsync(null!);
-        await act.Should().ThrowAsync<ArgumentNullException>();
+        ClearCategories();
+
+        Func<Task> act = async () =>
+            await _repo.CreateAsync(null!);
+
+        await act.Should()
+            .ThrowAsync<ArgumentNullException>();
     }
 
     [Fact]
     public async Task CreateAsync_ShouldThrow_WhenNameIsMissing()
     {
-        var category = new Category { Name = null! };
+        ClearCategories();
 
-        Func<Task> act = async () => await _repo.CreateAsync(category);
-        await act.Should().ThrowAsync<ArgumentNullException>();
+        var category = new Category
+        {
+            Name = null!
+        };
+
+        Func<Task> act = async () =>
+            await _repo.CreateAsync(category);
+
+        await act.Should()
+            .ThrowAsync<ArgumentNullException>();
     }
 
     [Fact]
     public async Task CreateAsync_ShouldInsertCategory()
     {
-        var category = new Category { Name = "Books" };
+        ClearCategories();
+
+        var category = new Category
+        {
+            Name = "Books"
+        };
+
         await _repo.CreateAsync(category);
 
         var fetched = await _repo.GetByIdAsync(category.Id);
+
         fetched.Should().NotBeNull();
+        fetched!.Name.Should().Be("Books");
     }
 
     // ---------------------------------------------------------
@@ -125,29 +181,50 @@ public class CategoryRepositoryTests : RepositoryTestBase
     [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenCategoryIsNull()
     {
+        ClearCategories();
+
         var result = await _repo.UpdateAsync(null!);
+
         result.Should().BeFalse();
     }
 
     [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsNull()
     {
-        var category = new Category { Id = null!, Name = "Test" };
+        ClearCategories();
+
+        var category = new Category
+        {
+            Id = null!,
+            Name = "Test"
+        };
+
         var result = await _repo.UpdateAsync(category);
+
         result.Should().BeFalse();
     }
 
     [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsWhitespace()
     {
-        var category = new Category { Id = "   ", Name = "Test" };
+        ClearCategories();
+
+        var category = new Category
+        {
+            Id = "   ",
+            Name = "Test"
+        };
+
         var result = await _repo.UpdateAsync(category);
+
         result.Should().BeFalse();
     }
 
     [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenIdIsInvalid()
     {
+        ClearCategories();
+
         var category = new Category
         {
             Id = "invalid-id",
@@ -155,12 +232,15 @@ public class CategoryRepositoryTests : RepositoryTestBase
         };
 
         var result = await _repo.UpdateAsync(category);
+
         result.Should().BeFalse();
     }
 
     [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenCategoryDoesNotExist()
     {
+        ClearCategories();
+
         var category = new Category
         {
             Id = ObjectId.GenerateNewId().ToString(),
@@ -168,43 +248,67 @@ public class CategoryRepositoryTests : RepositoryTestBase
         };
 
         var result = await _repo.UpdateAsync(category);
+
         result.Should().BeFalse();
     }
 
     [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenNameIsMissing()
     {
-        var category = new Category { Name = "Old Name" };
+        ClearCategories();
+
+        var category = new Category
+        {
+            Name = "Old Name"
+        };
+
         await _repo.CreateAsync(category);
 
         category.Name = null!;
 
         var result = await _repo.UpdateAsync(category);
+
         result.Should().BeFalse();
     }
 
     [Fact]
     public async Task UpdateAsync_ShouldReturnFalse_WhenReplaceMatchedButNotModified()
     {
-        var category = new Category { Name = "Same Name" };
+        ClearCategories();
+
+        var category = new Category
+        {
+            Name = "Same Name"
+        };
+
         await _repo.CreateAsync(category);
 
         var result = await _repo.UpdateAsync(category);
+
         result.Should().BeFalse();
     }
 
     [Fact]
     public async Task UpdateAsync_ShouldUpdateCategory_WhenExists()
     {
-        var category = new Category { Name = "Old Name" };
+        ClearCategories();
+
+        var category = new Category
+        {
+            Name = "Old Name"
+        };
+
         await _repo.CreateAsync(category);
 
         category.Name = "New Name";
 
         var updated = await _repo.UpdateAsync(category);
+
         updated.Should().BeTrue();
 
         var fetched = await _repo.GetByIdAsync(category.Id);
+
+        fetched.Should().NotBeNull();
         fetched!.Name.Should().Be("New Name");
     }
 
@@ -215,42 +319,63 @@ public class CategoryRepositoryTests : RepositoryTestBase
     [Fact]
     public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsNull()
     {
+        ClearCategories();
+
         var result = await _repo.DeleteAsync(null!);
+
         result.Should().BeFalse();
     }
 
     [Fact]
     public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsWhitespace()
     {
+        ClearCategories();
+
         var result = await _repo.DeleteAsync("   ");
+
         result.Should().BeFalse();
     }
 
     [Fact]
     public async Task DeleteAsync_ShouldReturnFalse_WhenIdIsInvalid()
     {
+        ClearCategories();
+
         var result = await _repo.DeleteAsync("invalid-id");
+
         result.Should().BeFalse();
     }
 
     [Fact]
     public async Task DeleteAsync_ShouldReturnFalse_WhenCategoryDoesNotExist()
     {
+        ClearCategories();
+
         var id = ObjectId.GenerateNewId().ToString();
+
         var result = await _repo.DeleteAsync(id);
+
         result.Should().BeFalse();
     }
 
     [Fact]
     public async Task DeleteAsync_ShouldDeleteCategory_WhenExists()
     {
-        var category = new Category { Name = "Delete Me" };
+        ClearCategories();
+
+        var category = new Category
+        {
+            Name = "Delete Me"
+        };
+
         await _repo.CreateAsync(category);
 
         var deleted = await _repo.DeleteAsync(category.Id);
+
         deleted.Should().BeTrue();
 
         var fetched = await _repo.GetByIdAsync(category.Id);
+
         fetched.Should().BeNull();
     }
 }
