@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import Container from "../components/Container";
 import { api } from "@/src/lib/api";
@@ -285,8 +286,15 @@ export default function ProductsPage() {
                     ? "Updating..."
                     : wishlistIds.has(product.id)
                     ? "❤️ Remove from Wishlist"
-                    : "❤️ Add to Wishlist"}
+                    : "♡ Add to Wishlist"}
                 </button>
+
+                <Link
+                  href={`/products/${product.id}`}
+                  className="mt-2 block w-full border border-black py-3 rounded text-center text-sm sm:text-base font-medium hover:bg-black hover:text-white transition"
+                >
+                  View Product Details →
+                </Link>
               </div>
             );
           })}

@@ -16,7 +16,8 @@ export default function ProductDetailsPage() {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState(false);
-  const [addingToWishlist, setAddingToWishlist] = useState(false);
+  const [updatingWishlist, setUpdatingWishlist] = useState(false);
+  const [isWishlisted, setIsWishlisted] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -35,6 +36,25 @@ export default function ProductDetailsPage() {
         setError(err instanceof Error ? err.message : "Failed to load product.");
       })
       .finally(() => setLoading(false));
+  }, [productId]);
+
+  useEffect(() => {
+    if (!productId) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setIsWishlisted(false);
+      return;
+    }
+
+    api
+      .getWishlist()
+      .then((wishlist) => {
+        setIsWishlisted(wishlist.some((item) => item.productId === productId));
+      })
+      .catch((err) => {
+        console.error("Failed to load wishlist:", err);
+      });
   }, [productId]);
 
   function updateQuantity(value: number) {
@@ -73,7 +93,9 @@ export default function ProductDetailsPage() {
     } catch (err) {
       console.error(err);
       showSnackbar(
-        err instanceof Error ? err.message : "Something went wrong while adding to cart.",
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while adding to cart.",
         "error"
       );
     } finally {
@@ -81,7 +103,7 @@ export default function ProductDetailsPage() {
     }
   }
 
-  async function handleAddToWishlist() {
+  async function toggleWishlist() {
     if (!product) return;
 
     const token = localStorage.getItem("token");
@@ -91,17 +113,27 @@ export default function ProductDetailsPage() {
     }
 
     try {
-      setAddingToWishlist(true);
-      await api.addToWishlist(product.id);
-      showSnackbar("Added to wishlist ❤️", "success");
+      setUpdatingWishlist(true);
+
+      if (isWishlisted) {
+        await api.removeFromWishlist(product.id);
+        setIsWishlisted(false);
+        showSnackbar("Removed from wishlist ❤️", "success");
+      } else {
+        await api.addToWishlist(product.id);
+        setIsWishlisted(true);
+        showSnackbar("Added to wishlist ❤️", "success");
+      }
     } catch (err) {
       console.error(err);
       showSnackbar(
-        err instanceof Error ? err.message : "Something went wrong while adding to wishlist.",
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while updating wishlist.",
         "error"
       );
     } finally {
-      setAddingToWishlist(false);
+      setUpdatingWishlist(false);
     }
   }
 
@@ -188,7 +220,9 @@ export default function ProductDetailsPage() {
           {hasStockLimit && (
             <div className="mt-6 rounded-lg bg-gray-50 border p-4">
               <p className="font-medium">
-                {outOfStock ? "Currently unavailable" : `${product.stockQuantity} item(s) available`}
+                {outOfStock
+                  ? "Currently unavailable"
+                  : `${product.stockQuantity} item(s) available`}
               </p>
               {!outOfStock && (
                 <p className="text-sm text-gray-500 mt-1">
@@ -250,11 +284,15 @@ export default function ProductDetailsPage() {
 
             <button
               type="button"
-              onClick={handleAddToWishlist}
-              disabled={addingToWishlist}
+              onClick={toggleWishlist}
+              disabled={updatingWishlist}
               className="w-full border border-gray-300 py-4 rounded-lg font-semibold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
-              {addingToWishlist ? "Adding to Wishlist..." : "❤️ Add to Wishlist"}
+              {updatingWishlist
+                ? "Updating Wishlist..."
+                : isWishlisted
+                ? "❤️ Remove from Wishlist"
+                : "♡ Add to Wishlist"}
             </button>
           </div>
 
