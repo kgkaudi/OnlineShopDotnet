@@ -24,6 +24,14 @@ export interface CartResponse {
   items: CartItem[];
 }
 
+export interface WishlistItem {
+  productId: string;
+  productName: string;
+  productDescription: string;
+  productPrice: number;
+  addedAt: string;
+}
+
 /**
  * Core request wrapper with optional token support
  */
@@ -144,13 +152,23 @@ export const api = {
 
   // WISHLIST
   getWishlist: () =>
-    request<Product[]>("/wishlist", {}, getClientToken() || undefined),
+    request<WishlistItem[]>("/wishlist", {}, getClientToken() || undefined),
 
   addToWishlist: (productId: string) =>
     request<{ message: string }>(
       "/wishlist/add",
       {
         method: "POST",
+        body: JSON.stringify({ productId }),
+      },
+      getClientToken() || undefined
+    ),
+
+  removeFromWishlist: (productId: string) =>
+    request<{ message: string }>(
+      "/wishlist/remove",
+      {
+        method: "DELETE",
         body: JSON.stringify({ productId }),
       },
       getClientToken() || undefined

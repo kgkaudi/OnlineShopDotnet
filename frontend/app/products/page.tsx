@@ -1,17 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import Container from "../components/Container";
-import { api, type Product } from "@/src/lib/api";
+import { api } from "@/src/lib/api";
 import { useSnackbar } from "@/src/context/SnackbarContext";
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [addingProductId, setAddingProductId] = useState<string | null>(null);
   const [wishlistProductId, setWishlistProductId] = useState<string | null>(null);
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const { showSnackbar } = useSnackbar();
 
@@ -19,15 +19,21 @@ export default function ProductsPage() {
     return quantities[productId] ?? 1;
   }
 
-  function changeQuantity(productId: string, value: number, stockQuantity?: number) {
-    const safeValue = Number.isFinite(value) ? Math.floor(value) : 1;
-    let nextQuantity = Math.max(1, safeValue);
+  function changeQuantity(
+    productId: string,
+    quantity: number,
+    stockQuantity?: number
+  ) {
+    let nextQuantity = Math.max(1, quantity);
 
     if (typeof stockQuantity === "number") {
       nextQuantity = Math.min(nextQuantity, stockQuantity);
     }
 
-    setQuantities((current) => ({ ...current, [productId]: nextQuantity }));
+    setQuantities((current) => ({
+      ...current,
+      [productId]: nextQuantity,
+    }));
   }
 
   async function addToCart(productId: string) {
@@ -40,19 +46,28 @@ export default function ProductsPage() {
         return;
       }
 
-      if (typeof product?.stockQuantity === "number" && quantity > product.stockQuantity) {
-        showSnackbar(`Only ${product.stockQuantity} item(s) are available.`, "error");
+      if (
+        typeof product?.stockQuantity === "number" &&
+        quantity > product.stockQuantity
+      ) {
+        showSnackbar(
+          `Only ${product.stockQuantity} item(s) are available.`,
+          "error"
+        );
         return;
       }
 
+      setAddingProductId(productId);
+
       const token = localStorage.getItem("token");
+
       if (!token) {
         showSnackbar("You must be logged in.", "error");
         return;
       }
 
-      setAddingProductId(productId);
       await api.addToCart(productId, quantity);
+
       showSnackbar(
         `${quantity} ${quantity === 1 ? "item" : "items"} added to cart 🛒`,
         "success"
@@ -60,7 +75,9 @@ export default function ProductsPage() {
     } catch (err) {
       console.error(err);
       showSnackbar(
-        err instanceof Error ? err.message : "Something went wrong while adding to cart.",
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while adding to cart.",
         "error"
       );
     } finally {
@@ -68,7 +85,7 @@ export default function ProductsPage() {
     }
   }
 
-  async function addToWishlist(productId: string) {
+  async function toggleWishlist(productId: string) {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
@@ -76,13 +93,26 @@ export default function ProductsPage() {
         return;
       }
 
+      const isWishlisted = wishlistIds.has(productId);
       setWishlistProductId(productId);
-      await api.addToWishlist(productId);
-      showSnackbar("Added to wishlist ❤️", "success");
+
+      if (isWishlisted) {
+        await api.removeFromWishlist(productId);
+        setWishlistIds((current) => {
+          const next = new Set(current);
+          next.delete(productId);
+          return next;
+        });
+        showSnackbar("Removed from wishlist ❤️", "success");
+      } else {
+        await api.addToWishlist(productId);
+        setWishlistIds((current) => new Set(current).add(productId));
+        showSnackbar("Added to wishlist ❤️", "success");
+      }
     } catch (err) {
       console.error(err);
       showSnackbar(
-        err instanceof Error ? err.message : "Something went wrong while adding to wishlist.",
+        err instanceof Error ? err.message : "Something went wrong while updating your wishlist.",
         "error"
       );
     } finally {
@@ -95,31 +125,40 @@ export default function ProductsPage() {
       .getProducts()
       .then((items) => {
         setProducts(items);
+
         const initialQuantities: Record<string, number> = {};
         items.forEach((product) => {
           initialQuantities[product.id] = 1;
         });
+
         setQuantities(initialQuantities);
       })
       .catch((err) => setError(err.message || "Failed to load products"))
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!localStorage.getItem("token")) return;
+
+    api
+      .getWishlist()
+      .then((wishlist) => {
+        setWishlistIds(new Set(wishlist.map((item) => item.productId)));
+      })
+      .catch((err) => {
+        console.error("Failed to load wishlist:", err);
+      });
+  }, []);
+
   return (
     <Container>
-      <div className="flex items-end justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Products</h1>
-          <p className="text-gray-600 mt-1">Browse our products and choose what you want to buy.</p>
-        </div>
-        <Link href="/wishlist" className="hidden sm:inline-flex text-sm font-medium hover:underline">
-          View Wishlist ❤️
-        </Link>
-      </div>
+      <h1 className="text-2xl font-bold mb-6">Products</h1>
 
       {loading && <p className="text-gray-600">Loading products...</p>}
 
-      {error && <p className="text-red-600 bg-red-100 px-3 py-2 rounded">{error}</p>}
+      {error && (
+        <p className="text-red-600 bg-red-100 px-3 py-2 rounded">{error}</p>
+      )}
 
       {!loading && !error && products.length === 0 && (
         <p className="text-gray-600">No products found.</p>
@@ -130,61 +169,91 @@ export default function ProductsPage() {
           {products.map((product) => {
             const quantity = getQuantity(product.id);
             const outOfStock = product.stockQuantity === 0;
-            const maxStock = product.stockQuantity;
+            const maxStock =
+              typeof product.stockQuantity === "number"
+                ? product.stockQuantity
+                : undefined;
 
             return (
-              <article
+              <div
                 key={product.id}
-                className="border rounded-2xl p-5 bg-white shadow-sm hover:shadow-lg transition flex flex-col"
+                className="border rounded p-4 bg-white shadow-sm hover:shadow-md transition"
               >
-                <Link href={`/products/${product.id}`} className="group">
-                  <div className="h-44 rounded-xl bg-gray-100 flex items-center justify-center mb-4">
-                    <span className="text-6xl group-hover:scale-110 transition">🛍️</span>
-                  </div>
-                  <h2 className="font-semibold text-xl group-hover:underline">{product.name}</h2>
-                </Link>
+                <h2 className="font-semibold text-lg">{product.name}</h2>
 
-                <p className="text-gray-600 mt-2 line-clamp-3 flex-1">
+                <p className="text-gray-600 mt-1">
                   {product.description || "No description available."}
                 </p>
 
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <p className="text-xl font-bold">€{Number(product.price).toFixed(2)}</p>
-                  {typeof product.stockQuantity === "number" && (
-                    <p className={`text-sm ${outOfStock ? "text-red-600" : "text-gray-500"}`}>
-                      {outOfStock ? "Out of stock" : `${product.stockQuantity} in stock`}
-                    </p>
-                  )}
-                </div>
+                <p className="text-black font-bold mt-3">
+                  €{Number(product.price).toFixed(2)}
+                </p>
+
+                {typeof product.stockQuantity === "number" && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {product.stockQuantity > 0
+                      ? `${product.stockQuantity} in stock`
+                      : "Out of stock"}
+                  </p>
+                )}
 
                 {!outOfStock && (
                   <div className="mt-4">
-                    <label htmlFor={`quantity-${product.id}`} className="block text-sm font-medium mb-2">
+                    <label
+                      htmlFor={`quantity-${product.id}`}
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
                       Quantity
                     </label>
+
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => changeQuantity(product.id, quantity - 1, maxStock)}
+                        onClick={() =>
+                          changeQuantity(
+                            product.id,
+                            quantity - 1,
+                            maxStock
+                          )
+                        }
                         disabled={quantity <= 1}
-                        className="w-10 h-10 border rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-10 h-10 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        aria-label={`Decrease quantity of ${product.name}`}
                       >
                         −
                       </button>
+
                       <input
                         id={`quantity-${product.id}`}
                         type="number"
                         min={1}
                         max={maxStock}
                         value={quantity}
-                        onChange={(event) => changeQuantity(product.id, Number(event.target.value), maxStock)}
-                        className="w-20 h-10 text-center border rounded-lg"
+                        onChange={(e) =>
+                          changeQuantity(
+                            product.id,
+                            Number(e.target.value),
+                            maxStock
+                          )
+                        }
+                        className="w-20 h-10 text-center border border-gray-300 rounded"
                       />
+
                       <button
                         type="button"
-                        onClick={() => changeQuantity(product.id, quantity + 1, maxStock)}
-                        disabled={typeof maxStock === "number" && quantity >= maxStock}
-                        className="w-10 h-10 border rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={() =>
+                          changeQuantity(
+                            product.id,
+                            quantity + 1,
+                            maxStock
+                          )
+                        }
+                        disabled={
+                          typeof maxStock === "number" &&
+                          quantity >= maxStock
+                        }
+                        className="w-10 h-10 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        aria-label={`Increase quantity of ${product.name}`}
                       >
                         +
                       </button>
@@ -193,30 +262,32 @@ export default function ProductsPage() {
                 )}
 
                 <button
-                  type="button"
                   onClick={() => addToCart(product.id)}
-                  disabled={addingProductId === product.id || outOfStock}
-                  className="mt-4 w-full bg-black text-white py-3 rounded-lg font-semibold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={
+                    addingProductId === product.id ||
+                    outOfStock ||
+                    quantity < 1
+                  }
+                  className="mt-4 w-full bg-black text-white py-3 rounded text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {addingProductId === product.id ? "Adding..." : `Add ${quantity} to Cart`}
+                  {addingProductId === product.id
+                    ? "Adding..."
+                    : `Add ${quantity} to Cart`}
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => addToWishlist(product.id)}
+                  onClick={() => toggleWishlist(product.id)}
                   disabled={wishlistProductId === product.id}
-                  className="mt-2 w-full border border-gray-300 py-3 rounded-lg font-semibold hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="mt-2 w-full border border-gray-300 py-3 rounded text-sm sm:text-base hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {wishlistProductId === product.id ? "Adding..." : "❤️ Add to Wishlist"}
+                  {wishlistProductId === product.id
+                    ? "Updating..."
+                    : wishlistIds.has(product.id)
+                    ? "❤️ Remove from Wishlist"
+                    : "❤️ Add to Wishlist"}
                 </button>
-
-                <Link
-                  href={`/products/${product.id}`}
-                  className="mt-3 text-center text-sm font-medium hover:underline"
-                >
-                  View product details →
-                </Link>
-              </article>
+              </div>
             );
           })}
         </div>
