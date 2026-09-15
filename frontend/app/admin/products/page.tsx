@@ -26,6 +26,193 @@ const emptyForm: ProductForm = {
   categoryId: "",
 };
 
+interface CategoryDropdownProps {
+  value: string;
+  categories: Category[];
+  disabled?: boolean;
+  onChange: (categoryId: string) => void;
+}
+
+function CategoryDropdown({
+  value,
+  categories,
+  disabled = false,
+  onChange,
+}: CategoryDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(
+          event.target as Node,
+        )
+      ) {
+        setOpen(false);
+      }
+    }
+
+    if (open) {
+      document.addEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
+    }
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
+    };
+  }, [open]);
+
+  useEffect(() => {
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    if (open) {
+      document.addEventListener(
+        "keydown",
+        handleEscape,
+      );
+    }
+
+    return () => {
+      document.removeEventListener(
+        "keydown",
+        handleEscape,
+      );
+    };
+  }, [open]);
+
+  const selectedCategory = categories.find(
+    (category) => category.id === value,
+  );
+
+  const selectedName =
+    selectedCategory?.name ?? "Select a category";
+
+  function handleSelect(categoryId: string) {
+    onChange(categoryId);
+    setOpen(false);
+  }
+
+  return (
+    <div
+      ref={dropdownRef}
+      className="relative w-full"
+    >
+      <button
+        type="button"
+        disabled={
+          disabled || categories.length === 0
+        }
+        onClick={() =>
+          setOpen((current) => !current)
+        }
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={`w-full rounded border bg-white px-3 py-2 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-black ${
+          disabled || categories.length === 0
+            ? "cursor-not-allowed opacity-50"
+            : "cursor-pointer hover:bg-gray-50"
+        }`}
+      >
+        <span
+          className={
+            value
+              ? "text-gray-900"
+              : "text-gray-500"
+          }
+        >
+          {selectedName}
+        </span>
+
+        <svg
+          className={`h-5 w-5 transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+
+      {open && categories.length > 0 && (
+        <div
+          className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg overflow-hidden"
+          role="listbox"
+        >
+          <button
+            type="button"
+            onClick={() => handleSelect("")}
+            className={`w-full px-3 py-2 text-left hover:bg-gray-100 ${
+              !value
+                ? "bg-gray-100 font-medium"
+                : ""
+            }`}
+            role="option"
+            aria-selected={!value}
+          >
+            Select a category
+          </button>
+
+          {categories.map((category) => {
+            const isSelected =
+              value === category.id;
+
+            return (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() =>
+                  handleSelect(category.id)
+                }
+                className={`w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between ${
+                  isSelected
+                    ? "bg-gray-100 font-medium"
+                    : ""
+                }`}
+                role="option"
+                aria-selected={isSelected}
+              >
+                <span>{category.name}</span>
+
+                {isSelected && (
+                  <svg
+                    className="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M16.704 5.29a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0l-3.25-3.25a.75.75 0 111.06-1.06l2.72 2.72 6.72-6.72a.75.75 0 011.06 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminProductsPage() {
   const router = useRouter();
 
@@ -36,10 +223,13 @@ export default function AdminProductsPage() {
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>(
+  const [products, setProducts] = useState<Product[]>(
     [],
   );
+
+  const [categories, setCategories] = useState<
+    Category[]
+  >([]);
 
   const [form, setForm] =
     useState<ProductForm>(emptyForm);
@@ -54,17 +244,17 @@ export default function AdminProductsPage() {
 
   const [creating, setCreating] = useState(false);
 
-  const [deletingProductId, setDeletingProductId] =
+  const [editingProductId, setEditingProductId] =
     useState<string | null>(null);
 
-  /*
-   * Custom category dropdown state.
-   */
-  const [categoryDropdownOpen, setCategoryDropdownOpen] =
-    useState(false);
+  const [editingForm, setEditingForm] =
+    useState<ProductForm>(emptyForm);
 
-  const categoryDropdownRef =
-    useRef<HTMLDivElement | null>(null);
+  const [updatingProductId, setUpdatingProductId] =
+    useState<string | null>(null);
+
+  const [deletingProductId, setDeletingProductId] =
+    useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,61 +342,6 @@ export default function AdminProductsPage() {
     };
   }, [isLoggedIn, router]);
 
-  /*
-   * Close the category dropdown when clicking outside.
-   */
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        categoryDropdownRef.current &&
-        !categoryDropdownRef.current.contains(
-          event.target as Node,
-        )
-      ) {
-        setCategoryDropdownOpen(false);
-      }
-    }
-
-    if (categoryDropdownOpen) {
-      document.addEventListener(
-        "mousedown",
-        handleClickOutside,
-      );
-    }
-
-    return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside,
-      );
-    };
-  }, [categoryDropdownOpen]);
-
-  /*
-   * Close the category dropdown with Escape.
-   */
-  useEffect(() => {
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setCategoryDropdownOpen(false);
-      }
-    }
-
-    if (categoryDropdownOpen) {
-      document.addEventListener(
-        "keydown",
-        handleEscape,
-      );
-    }
-
-    return () => {
-      document.removeEventListener(
-        "keydown",
-        handleEscape,
-      );
-    };
-  }, [categoryDropdownOpen]);
-
   function updateField(
     field: keyof ProductForm,
     value: string,
@@ -217,25 +352,53 @@ export default function AdminProductsPage() {
     }));
   }
 
-  function handleCategorySelect(categoryId: string) {
-    updateField("categoryId", categoryId);
-    setCategoryDropdownOpen(false);
+  function updateEditingField(
+    field: keyof ProductForm,
+    value: string,
+  ) {
+    setEditingForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
   }
 
-  function getSelectedCategoryName(): string {
-    if (!form.categoryId) {
-      return "Select a category";
+  function validateProductForm(
+    productForm: ProductForm,
+  ): string | null {
+    const name = productForm.name.trim();
+    const categoryId =
+      productForm.categoryId.trim();
+
+    const price = Number(productForm.price);
+    const stockQuantity = Number(
+      productForm.stockQuantity,
+    );
+
+    if (!name) {
+      return "Product name is required.";
     }
 
-    const selectedCategory = categories.find(
-      (category) =>
-        category.id === form.categoryId,
-    );
+    if (!Number.isFinite(price) || price <= 0) {
+      return "Price must be greater than zero.";
+    }
 
-    return (
-      selectedCategory?.name ??
-      "Select a category"
-    );
+    if (
+      !Number.isInteger(stockQuantity) ||
+      stockQuantity < 0
+    ) {
+      return "Stock quantity must be a whole number greater than or equal to zero.";
+    }
+
+    if (
+      categoryId &&
+      !categories.some(
+        (category) => category.id === categoryId,
+      )
+    ) {
+      return "Please select a valid category.";
+    }
+
+    return null;
   }
 
   async function handleCreateProduct(
@@ -246,6 +409,14 @@ export default function AdminProductsPage() {
     setError(null);
     setSuccess(null);
 
+    const validationError =
+      validateProductForm(form);
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     const name = form.name.trim();
     const description = form.description.trim();
     const categoryId = form.categoryId.trim();
@@ -254,42 +425,6 @@ export default function AdminProductsPage() {
     const stockQuantity = Number(
       form.stockQuantity,
     );
-
-    if (!name) {
-      setError("Product name is required.");
-      return;
-    }
-
-    if (!Number.isFinite(price) || price <= 0) {
-      setError(
-        "Price must be greater than zero.",
-      );
-      return;
-    }
-
-    if (
-      !Number.isInteger(stockQuantity) ||
-      stockQuantity < 0
-    ) {
-      setError(
-        "Stock quantity must be a whole number greater than or equal to zero.",
-      );
-      return;
-    }
-
-    /*
-     * If a category was selected, make sure it exists
-     * in the categories currently loaded by the API.
-     */
-    if (
-      categoryId &&
-      !categories.some(
-        (category) => category.id === categoryId,
-      )
-    ) {
-      setError("Please select a valid category.");
-      return;
-    }
 
     setCreating(true);
 
@@ -309,7 +444,6 @@ export default function AdminProductsPage() {
       ]);
 
       setForm(emptyForm);
-      setCategoryDropdownOpen(false);
 
       setSuccess(
         `Product "${createdProduct.name}" created successfully.`,
@@ -327,6 +461,104 @@ export default function AdminProductsPage() {
       );
     } finally {
       setCreating(false);
+    }
+  }
+
+  function startEditingProduct(
+    product: Product,
+  ) {
+    setError(null);
+    setSuccess(null);
+
+    setEditingProductId(product.id);
+
+    setEditingForm({
+      name: product.name ?? "",
+      description:
+        product.description ?? "",
+      price: String(product.price ?? ""),
+      stockQuantity: String(
+        product.stockQuantity ?? 0,
+      ),
+      categoryId:
+        product.categoryId ?? "",
+    });
+  }
+
+  function cancelEditingProduct() {
+    if (updatingProductId) {
+      return;
+    }
+
+    setEditingProductId(null);
+    setEditingForm(emptyForm);
+    setError(null);
+  }
+
+  async function handleUpdateProduct(
+    product: Product,
+  ) {
+    setError(null);
+    setSuccess(null);
+
+    const validationError =
+      validateProductForm(editingForm);
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    const name = editingForm.name.trim();
+    const description =
+      editingForm.description.trim();
+    const categoryId =
+      editingForm.categoryId.trim();
+
+    const price = Number(editingForm.price);
+    const stockQuantity = Number(
+      editingForm.stockQuantity,
+    );
+
+    setUpdatingProductId(product.id);
+
+    try {
+      const updatedProduct =
+        await api.updateProduct(product.id, {
+          name,
+          description: description || null,
+          price,
+          stockQuantity,
+          categoryId: categoryId || null,
+        });
+
+      setProducts((current) =>
+        current.map((item) =>
+          item.id === product.id
+            ? updatedProduct
+            : item,
+        ),
+      );
+
+      setEditingProductId(null);
+      setEditingForm(emptyForm);
+
+      setSuccess(
+        `Product "${updatedProduct.name}" updated successfully.`,
+      );
+    } catch (err) {
+      console.error(
+        "Failed to update product:",
+        err,
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to update product.",
+      );
+    } finally {
+      setUpdatingProductId(null);
     }
   }
 
@@ -353,6 +585,11 @@ export default function AdminProductsPage() {
           (item) => item.id !== product.id,
         ),
       );
+
+      if (editingProductId === product.id) {
+        setEditingProductId(null);
+        setEditingForm(emptyForm);
+      }
 
       setSuccess(
         `Product "${product.name}" deleted successfully.`,
@@ -554,145 +791,23 @@ export default function AdminProductsPage() {
             </div>
           </div>
 
-          {/* Category Dropdown */}
+          {/* Category */}
           <div>
-            <label
-              htmlFor="categoryId"
-              className="block text-sm font-medium mb-1"
-            >
+            <label className="block text-sm font-medium mb-1">
               Category
             </label>
 
-            <div
-              ref={categoryDropdownRef}
-              className="relative"
-            >
-              <button
-                id="categoryId"
-                type="button"
-                disabled={
-                  creating ||
-                  categories.length === 0
-                }
-                onClick={() =>
-                  setCategoryDropdownOpen(
-                    (current) => !current,
-                  )
-                }
-                aria-haspopup="listbox"
-                aria-expanded={
-                  categoryDropdownOpen
-                }
-                className={`w-full rounded border bg-white px-3 py-2 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-black ${
-                  creating ||
-                  categories.length === 0
-                    ? "cursor-not-allowed opacity-50"
-                    : "cursor-pointer hover:bg-gray-50"
-                }`}
-              >
-                <span
-                  className={
-                    form.categoryId
-                      ? "text-gray-900"
-                      : "text-gray-500"
-                  }
-                >
-                  {getSelectedCategoryName()}
-                </span>
-
-                <svg
-                  className={`h-5 w-5 transition-transform ${
-                    categoryDropdownOpen
-                      ? "rotate-180"
-                      : ""
-                  }`}
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-
-              {categoryDropdownOpen &&
-                categories.length > 0 && (
-                  <div
-                    className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg overflow-hidden"
-                    role="listbox"
-                    aria-labelledby="categoryId"
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleCategorySelect("")
-                      }
-                      className={`w-full px-3 py-2 text-left hover:bg-gray-100 ${
-                        !form.categoryId
-                          ? "bg-gray-100 font-medium"
-                          : ""
-                      }`}
-                      role="option"
-                      aria-selected={
-                        !form.categoryId
-                      }
-                    >
-                      Select a category
-                    </button>
-
-                    {categories.map(
-                      (category) => {
-                        const isSelected =
-                          form.categoryId ===
-                          category.id;
-
-                        return (
-                          <button
-                            key={category.id}
-                            type="button"
-                            onClick={() =>
-                              handleCategorySelect(
-                                category.id,
-                              )
-                            }
-                            className={`w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between ${
-                              isSelected
-                                ? "bg-gray-100 font-medium"
-                                : ""
-                            }`}
-                            role="option"
-                            aria-selected={
-                              isSelected
-                            }
-                          >
-                            <span>
-                              {category.name}
-                            </span>
-
-                            {isSelected && (
-                              <svg
-                                className="h-5 w-5"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                                aria-hidden="true"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M16.704 5.29a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0l-3.25-3.25a.75.75 0 111.06-1.06l2.72 2.72 6.72-6.72a.75.75 0 011.06 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            )}
-                          </button>
-                        );
-                      },
-                    )}
-                  </div>
-                )}
-            </div>
+            <CategoryDropdown
+              value={form.categoryId}
+              categories={categories}
+              disabled={creating}
+              onChange={(categoryId) =>
+                updateField(
+                  "categoryId",
+                  categoryId,
+                )
+              }
+            />
 
             {categories.length === 0 && (
               <p className="mt-1 text-xs text-gray-500">
@@ -777,60 +892,244 @@ export default function AdminProductsPage() {
                     </td>
                   </tr>
                 ) : (
-                  products.map((product) => (
-                    <tr
-                      key={product.id}
-                      className="border-b last:border-b-0"
-                    >
-                      <td className="px-4 py-4 font-medium">
-                        {product.name}
-                      </td>
+                  products.map((product) => {
+                    const isEditing =
+                      editingProductId ===
+                      product.id;
 
-                      <td className="px-4 py-4 max-w-xs">
-                        <span className="line-clamp-2 text-gray-600">
-                          {product.description ||
-                            "-"}
-                        </span>
-                      </td>
+                    const isUpdating =
+                      updatingProductId ===
+                      product.id;
 
-                      <td className="px-4 py-4">
-                        {product.price.toFixed(2)}
-                      </td>
+                    const isDeleting =
+                      deletingProductId ===
+                      product.id;
 
-                      <td className="px-4 py-4">
-                        {product.stockQuantity ?? 0}
-                      </td>
+                    if (isEditing) {
+                      return (
+                        <tr
+                          key={product.id}
+                          className="border-b last:border-b-0 bg-gray-50"
+                        >
+                          {/* Name */}
+                          <td className="px-4 py-4 align-top">
+                            <input
+                              type="text"
+                              value={
+                                editingForm.name
+                              }
+                              onChange={(event) =>
+                                updateEditingField(
+                                  "name",
+                                  event.target
+                                    .value,
+                                )
+                              }
+                              className="w-full min-w-[160px] rounded border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                              disabled={isUpdating}
+                            />
+                          </td>
 
-                      <td className="px-4 py-4">
-                        {getCategoryName(
-                          product.categoryId,
-                        )}
-                      </td>
+                          {/* Description */}
+                          <td className="px-4 py-4 align-top">
+                            <textarea
+                              value={
+                                editingForm.description
+                              }
+                              onChange={(event) =>
+                                updateEditingField(
+                                  "description",
+                                  event.target
+                                    .value,
+                                )
+                              }
+                              rows={3}
+                              className="w-full min-w-[220px] rounded border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                              disabled={isUpdating}
+                            />
+                          </td>
 
-                      <td className="px-4 py-4">
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            disabled={
-                              deletingProductId ===
-                              product.id
-                            }
-                            onClick={() =>
-                              handleDeleteProduct(
-                                product,
-                              )
-                            }
-                            className="px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {deletingProductId ===
-                            product.id
-                              ? "Deleting..."
-                              : "Delete"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                          {/* Price */}
+                          <td className="px-4 py-4 align-top">
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              value={
+                                editingForm.price
+                              }
+                              onChange={(event) =>
+                                updateEditingField(
+                                  "price",
+                                  event.target
+                                    .value,
+                                )
+                              }
+                              className="w-full min-w-[100px] rounded border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                              disabled={isUpdating}
+                            />
+                          </td>
+
+                          {/* Stock */}
+                          <td className="px-4 py-4 align-top">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={
+                                editingForm.stockQuantity
+                              }
+                              onChange={(event) =>
+                                updateEditingField(
+                                  "stockQuantity",
+                                  event.target
+                                    .value,
+                                )
+                              }
+                              className="w-full min-w-[90px] rounded border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                              disabled={isUpdating}
+                            />
+                          </td>
+
+                          {/* Category */}
+                          <td className="px-4 py-4 align-top">
+                            <div className="min-w-[180px]">
+                              <CategoryDropdown
+                                value={
+                                  editingForm.categoryId
+                                }
+                                categories={
+                                  categories
+                                }
+                                disabled={
+                                  isUpdating
+                                }
+                                onChange={(
+                                  categoryId,
+                                ) =>
+                                  updateEditingField(
+                                    "categoryId",
+                                    categoryId,
+                                  )
+                                }
+                              />
+                            </div>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-4 py-4 align-top">
+                            <div className="flex flex-col items-end gap-2">
+                              <button
+                                type="button"
+                                disabled={
+                                  isUpdating ||
+                                  isDeleting
+                                }
+                                onClick={() =>
+                                  handleUpdateProduct(
+                                    product,
+                                  )
+                                }
+                                className="w-full px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {isUpdating
+                                  ? "Saving..."
+                                  : "Save"}
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  isUpdating
+                                }
+                                onClick={
+                                  cancelEditingProduct
+                                }
+                                className="w-full px-3 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return (
+                      <tr
+                        key={product.id}
+                        className="border-b last:border-b-0"
+                      >
+                        <td className="px-4 py-4 font-medium">
+                          {product.name}
+                        </td>
+
+                        <td className="px-4 py-4 max-w-xs">
+                          <span className="line-clamp-2 text-gray-600">
+                            {product.description ||
+                              "-"}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          {Number(
+                            product.price,
+                          ).toFixed(2)}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          {product.stockQuantity ??
+                            0}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          {getCategoryName(
+                            product.categoryId,
+                          )}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              disabled={
+                                isDeleting ||
+                                isUpdating ||
+                                editingProductId !==
+                                  null
+                              }
+                              onClick={() =>
+                                startEditingProduct(
+                                  product,
+                                )
+                              }
+                              className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={
+                                isDeleting ||
+                                isUpdating
+                              }
+                              onClick={() =>
+                                handleDeleteProduct(
+                                  product,
+                                )
+                              }
+                              className="px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isDeleting
+                                ? "Deleting..."
+                                : "Delete"}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
