@@ -3,6 +3,7 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 /**
  * Shared types
  */
+
 export interface Product {
   id: string;
   name: string;
@@ -24,11 +25,27 @@ export interface CartResponse {
   items: CartItem[];
 }
 
+export interface Address {
+  street?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
   fullName: string;
   roles: string[];
+
+  phoneNumber?: string | null;
+  shippingAddress?: Address | null;
+  billingAddress?: Address | null;
+
+  createdAt?: string;
+  updatedAt?: string;
+  isEmailVerified?: boolean;
 }
 
 export interface WishlistItem {
@@ -75,22 +92,34 @@ async function request<T>(
  */
 export function getClientToken(): string | null {
   if (typeof window === "undefined") return null;
+
   return localStorage.getItem("token");
 }
 
 export function getClientUserId(): string | null {
   const token = getClientToken();
+
   if (!token) return null;
 
   try {
     const payloadPart = token.split(".")[1];
+
     if (!payloadPart) return null;
 
-    const base64 = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const base64 = payloadPart
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+
+    const padded = base64.padEnd(
+      Math.ceil(base64.length / 4) * 4,
+      "="
+    );
+
     const payload = JSON.parse(atob(padded));
 
-    return typeof payload.sub === "string" ? payload.sub.trim() : null;
+    return typeof payload.sub === "string"
+      ? payload.sub.trim()
+      : null;
   } catch {
     return null;
   }
@@ -109,18 +138,40 @@ export function logout() {
  * API endpoints
  */
 export const api = {
+  // =========================================================
   // AUTH
-  login: (data: { email: string; password: string }) =>
+  // =========================================================
+
+  login: (data: {
+    email: string;
+    password: string;
+  }) =>
     request<{ token: string }>("/auth/login", {
       method: "POST",
       body: JSON.stringify(data),
     }),
 
+  // =========================================================
   // PROFILE
-  getUserProfile: (id: string) =>
-    request<UserProfile>(`/users/${id}`, {}, getClientToken() || undefined),
+  // =========================================================
 
-  updateUserProfile: (id: string, data: { fullName: string; email: string }) =>
+  getUserProfile: (id: string) =>
+    request<UserProfile>(
+      `/users/${id}`,
+      {},
+      getClientToken() || undefined
+    ),
+
+  updateUserProfile: (
+    id: string,
+    data: {
+      fullName: string;
+      email: string;
+      phoneNumber?: string | null;
+      shippingAddress?: Address | null;
+      billingAddress?: Address | null;
+    }
+  ) =>
     request<UserProfile>(
       `/users/${id}`,
       {
@@ -130,15 +181,31 @@ export const api = {
       getClientToken() || undefined
     ),
 
+  // =========================================================
   // PRODUCTS
-  getProducts: () => request<Product[]>("/products"),
-  getProduct: (id: string) => request<Product>(`/products/${id}`),
+  // =========================================================
 
+  getProducts: () =>
+    request<Product[]>("/products"),
+
+  getProduct: (id: string) =>
+    request<Product>(`/products/${id}`),
+
+  // =========================================================
   // CART
-  getCart: () =>
-    request<CartResponse>("/cart", {}, getClientToken() || undefined),
+  // =========================================================
 
-  addToCart: (productId: string, quantity = 1) => {
+  getCart: () =>
+    request<CartResponse>(
+      "/cart",
+      {},
+      getClientToken() || undefined
+    ),
+
+  addToCart: (
+    productId: string,
+    quantity = 1
+  ) => {
     const params = new URLSearchParams({
       productId,
       quantity: String(quantity),
@@ -153,7 +220,10 @@ export const api = {
     );
   },
 
-  updateCartItem: (productId: string, quantity: number) => {
+  updateCartItem: (
+    productId: string,
+    quantity: number
+  ) => {
     const params = new URLSearchParams({
       productId,
       quantity: String(quantity),
@@ -169,7 +239,9 @@ export const api = {
   },
 
   removeFromCart: (productId: string) => {
-    const params = new URLSearchParams({ productId });
+    const params = new URLSearchParams({
+      productId,
+    });
 
     return request<CartResponse>(
       `/cart/remove?${params.toString()}`,
@@ -189,9 +261,16 @@ export const api = {
       getClientToken() || undefined
     ),
 
+  // =========================================================
   // WISHLIST
+  // =========================================================
+
   getWishlist: () =>
-    request<WishlistItem[]>("/wishlist", {}, getClientToken() || undefined),
+    request<WishlistItem[]>(
+      "/wishlist",
+      {},
+      getClientToken() || undefined
+    ),
 
   addToWishlist: (productId: string) =>
     request<{ message: string }>(
