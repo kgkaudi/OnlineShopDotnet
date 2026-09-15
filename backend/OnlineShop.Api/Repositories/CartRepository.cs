@@ -124,4 +124,18 @@ public class CartRepository : ICartRepository
 
         return result.MatchedCount == 1;
     }
+
+    public async Task<bool> DeleteByUserIdAsync(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+            return false;
+
+        if (!ObjectId.TryParse(userId, out _))
+            return false;
+
+        var result = await _carts.DeleteOneAsync(
+            c => c.UserId == userId);
+
+        return result.DeletedCount > 0;
+    }
 }

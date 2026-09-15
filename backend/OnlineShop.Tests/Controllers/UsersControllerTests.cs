@@ -3,11 +3,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using OnlineShop.Api.Controllers;
+using OnlineShop.Api.DTOs;
 using OnlineShop.Api.Models;
 using OnlineShop.Api.Services;
-using Xunit;
 using System.Security.Claims;
-using OnlineShop.Api.DTOs;
+using Xunit;
 
 public class UsersControllerTests
 {
@@ -214,7 +214,7 @@ public class UsersControllerTests
     // ---------------------------------------------------------
 
     [Fact]
-    public async Task AddRole_ShouldReturnUnauthorized_WhenNotAdmin()
+    public async Task AddRole_ShouldReturnForbid_WhenNotAdmin()
     {
         var controller = CreateController(
             new FakeUserService(),
@@ -227,7 +227,7 @@ public class UsersControllerTests
             "Admin"
         );
 
-        result.Should().BeOfType<UnauthorizedObjectResult>();
+        result.Should().BeOfType<ForbidResult>();
     }
 
     [Fact]
@@ -350,6 +350,271 @@ public class UsersControllerTests
         var result = await controller.AddRole(id, "Admin");
 
         result.Should().BeOfType<OkObjectResult>();
+    }
+
+    // ---------------------------------------------------------
+    // UPDATE ROLES
+    // ---------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateRoles_ShouldReturnForbid_WhenNotAdmin()
+    {
+        var service = new FakeUserService();
+
+        var userId = ObjectId.GenerateNewId().ToString();
+
+        service.AddUser(userId);
+
+        var controller = CreateController(
+            service,
+            ObjectId.GenerateNewId().ToString(),
+            isAdmin: false
+        );
+
+        var dto = new UpdateRolesDto
+        {
+            Roles = new List<string> { "Admin" }
+        };
+
+        var result = await controller.UpdateRoles(
+            userId,
+            dto
+        );
+
+        result.Should().BeOfType<ForbidResult>();
+    }
+
+    [Fact]
+    public async Task UpdateRoles_ShouldReturnBadRequest_WhenIdInvalid()
+    {
+        var controller = CreateController(
+            new FakeUserService(),
+            ObjectId.GenerateNewId().ToString(),
+            isAdmin: true
+        );
+
+        var dto = new UpdateRolesDto
+        {
+            Roles = new List<string> { "User" }
+        };
+
+        var result = await controller.UpdateRoles(
+            "invalid-id",
+            dto
+        );
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task UpdateRoles_ShouldReturnBadRequest_WhenDtoNull()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+
+        var controller = CreateController(
+            new FakeUserService(),
+            ObjectId.GenerateNewId().ToString(),
+            isAdmin: true
+        );
+
+        var result = await controller.UpdateRoles(
+            userId,
+            null
+        );
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task UpdateRoles_ShouldReturnBadRequest_WhenRolesEmpty()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+
+        var controller = CreateController(
+            new FakeUserService(),
+            ObjectId.GenerateNewId().ToString(),
+            isAdmin: true
+        );
+
+        var dto = new UpdateRolesDto
+        {
+            Roles = new List<string>()
+        };
+
+        var result = await controller.UpdateRoles(
+            userId,
+            dto
+        );
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task UpdateRoles_ShouldReturnBadRequest_WhenRoleInvalid()
+    {
+        var service = new FakeUserService();
+
+        var userId = ObjectId.GenerateNewId().ToString();
+
+        service.AddUser(userId);
+
+        var controller = CreateController(
+            service,
+            ObjectId.GenerateNewId().ToString(),
+            isAdmin: true
+        );
+
+        var dto = new UpdateRolesDto
+        {
+            Roles = new List<string> { "SuperUser" }
+        };
+
+        var result = await controller.UpdateRoles(
+            userId,
+            dto
+        );
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task UpdateRoles_ShouldReturnNotFound_WhenUserMissing()
+    {
+        var service = new FakeUserService();
+
+        var userId = ObjectId.GenerateNewId().ToString();
+
+        var controller = CreateController(
+            service,
+            ObjectId.GenerateNewId().ToString(),
+            isAdmin: true
+        );
+
+        var dto = new UpdateRolesDto
+        {
+            Roles = new List<string> { "User" }
+        };
+
+        var result = await controller.UpdateRoles(
+            userId,
+            dto
+        );
+
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task UpdateRoles_ShouldReturnOk_WhenValid()
+    {
+        var service = new FakeUserService();
+
+        var userId = ObjectId.GenerateNewId().ToString();
+        var adminId = ObjectId.GenerateNewId().ToString();
+
+        service.AddUser(userId);
+        service.AddUser(adminId);
+
+        var controller = CreateController(
+            service,
+            adminId,
+            isAdmin: true
+        );
+
+        var dto = new UpdateRolesDto
+        {
+            Roles = new List<string> { "User", "Admin" }
+        };
+
+        var result = await controller.UpdateRoles(
+            userId,
+            dto
+        );
+
+        result.Should().BeOfType<OkObjectResult>();
+
+        var user = service.GetStoredUser(userId);
+
+        user.Should().NotBeNull();
+        user!.Roles.Should().Contain("User");
+        user.Roles.Should().Contain("Admin");
+    }
+
+    [Fact]
+    public async Task UpdateRoles_ShouldTrimAndRemoveDuplicateRoles()
+    {
+        var service = new FakeUserService();
+
+        var userId = ObjectId.GenerateNewId().ToString();
+        var adminId = ObjectId.GenerateNewId().ToString();
+
+        service.AddUser(userId);
+        service.AddUser(adminId);
+
+        var controller = CreateController(
+            service,
+            adminId,
+            isAdmin: true
+        );
+
+        var dto = new UpdateRolesDto
+        {
+            Roles = new List<string>
+            {
+                " User ",
+                "Admin",
+                "admin"
+            }
+        };
+
+        var result = await controller.UpdateRoles(
+            userId,
+            dto
+        );
+
+        result.Should().BeOfType<OkObjectResult>();
+
+        var user = service.GetStoredUser(userId);
+
+        user.Should().NotBeNull();
+        user!.Roles.Should().HaveCount(2);
+        user.Roles.Should().Contain("User");
+        user.Roles.Should().Contain("Admin");
+    }
+
+    [Fact]
+    public async Task UpdateRoles_ShouldReturnBadRequest_WhenAdminRemovesOwnAdminRole()
+    {
+        var service = new FakeUserService();
+
+        var adminId = ObjectId.GenerateNewId().ToString();
+
+        service.AddUser(adminId);
+
+        service.GetStoredUser(adminId)!
+            .Roles = new List<string> { "User", "Admin" };
+
+        var controller = CreateController(
+            service,
+            adminId,
+            isAdmin: true
+        );
+
+        var dto = new UpdateRolesDto
+        {
+            Roles = new List<string> { "User" }
+        };
+
+        var result = await controller.UpdateRoles(
+            adminId,
+            dto
+        );
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+
+        service.GetStoredUser(adminId)!
+            .Roles
+            .Should()
+            .Contain("Admin");
     }
 
     // ---------------------------------------------------------
@@ -722,7 +987,7 @@ public class UsersControllerTests
     // ---------------------------------------------------------
 
     [Fact]
-    public async Task Delete_ShouldReturnUnauthorized_WhenNotAdmin()
+    public async Task Delete_ShouldReturnForbid_WhenNotAdmin()
     {
         var controller = CreateController(
             new FakeUserService(),
@@ -734,7 +999,7 @@ public class UsersControllerTests
             ObjectId.GenerateNewId().ToString()
         );
 
-        result.Should().BeOfType<UnauthorizedObjectResult>();
+        result.Should().BeOfType<ForbidResult>();
     }
 
     [Fact]
@@ -773,18 +1038,21 @@ public class UsersControllerTests
         var service = new FakeUserService();
 
         var id = ObjectId.GenerateNewId().ToString();
+        var adminId = ObjectId.GenerateNewId().ToString();
 
         service.AddUser(id);
+        service.AddUser(adminId);
 
         var controller = CreateController(
             service,
-            ObjectId.GenerateNewId().ToString(),
+            adminId,
             isAdmin: true
         );
 
         var result = await controller.Delete(id);
 
         result.Should().BeOfType<OkObjectResult>();
+        service.GetStoredUser(id).Should().BeNull();
     }
 
     [Fact]
@@ -793,12 +1061,14 @@ public class UsersControllerTests
         var service = new FakeUserService();
 
         var id = ObjectId.GenerateNewId().ToString();
+        var adminId = ObjectId.GenerateNewId().ToString();
 
         service.AddUser(id);
+        service.AddUser(adminId);
 
         var controller = CreateController(
             service,
-            ObjectId.GenerateNewId().ToString(),
+            adminId,
             isAdmin: true
         );
 
@@ -807,6 +1077,31 @@ public class UsersControllerTests
 
         first.Should().BeOfType<OkObjectResult>();
         second.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task Delete_ShouldReturnBadRequest_WhenAdminDeletesOwnAccount()
+    {
+        var service = new FakeUserService();
+
+        var adminId = ObjectId.GenerateNewId().ToString();
+
+        service.AddUser(adminId);
+
+        service.GetStoredUser(adminId)!
+            .Roles = new List<string> { "User", "Admin" };
+
+        var controller = CreateController(
+            service,
+            adminId,
+            isAdmin: true
+        );
+
+        var result = await controller.Delete(adminId);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+
+        service.GetStoredUser(adminId).Should().NotBeNull();
     }
 }
 
@@ -828,7 +1123,6 @@ public class FakeUserService : IUserService
             FullName = "Test User",
             Roles = new List<string> { "User" },
 
-            // New profile fields
             PhoneNumber = "+46 70 000 00 00",
 
             ShippingAddress = new Address
@@ -888,12 +1182,12 @@ public class FakeUserService : IUserService
     }
 
     public Task<User?> UpdateProfileAsync(
-    string id,
-    string fullName,
-    string email,
-    string? phoneNumber,
-    Address? shippingAddress,
-    Address? billingAddress)
+        string id,
+        string fullName,
+        string email,
+        string? phoneNumber,
+        Address? shippingAddress,
+        Address? billingAddress)
     {
         if (!_store.TryGetValue(id, out var user))
             return Task.FromResult<User?>(null);
@@ -901,8 +1195,7 @@ public class FakeUserService : IUserService
         var emailChanged = !string.Equals(
             user.Email,
             email,
-            StringComparison.OrdinalIgnoreCase
-        );
+            StringComparison.OrdinalIgnoreCase);
 
         user.FullName = fullName;
         user.Email = email;
@@ -911,22 +1204,45 @@ public class FakeUserService : IUserService
         user.BillingAddress = billingAddress;
         user.UpdatedAt = DateTime.UtcNow;
 
-        // Changing the email requires verification again.
         if (emailChanged)
             user.IsEmailVerified = false;
 
         return Task.FromResult<User?>(user);
     }
 
-    public Task<bool> AddRoleAsync(string id, string role)
+    public Task<bool> AddRoleAsync(
+        string id,
+        string role)
     {
         if (!_store.ContainsKey(id))
             return Task.FromResult(false);
 
-        if (!_store[id].Roles.Contains(role))
+        if (!_store[id].Roles.Contains(
+                role,
+                StringComparer.OrdinalIgnoreCase))
+        {
             _store[id].Roles.Add(role);
+        }
 
         return Task.FromResult(true);
+    }
+
+    public Task<User?> UpdateRolesAsync(
+        string userId,
+        List<string> roles)
+    {
+        if (!_store.TryGetValue(userId, out var user))
+            return Task.FromResult<User?>(null);
+
+        user.Roles = roles
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Select(role => role.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        user.UpdatedAt = DateTime.UtcNow;
+
+        return Task.FromResult<User?>(user);
     }
 
     public Task<bool> DeleteAsync(string id)

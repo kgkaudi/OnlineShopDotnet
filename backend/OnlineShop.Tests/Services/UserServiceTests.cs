@@ -8,13 +8,21 @@ namespace OnlineShop.Tests.Services;
 
 public class UserServiceTests
 {
-    private readonly Mock<IUserRepository> _repoMock;
+    private readonly Mock<IUserRepository> _repository;
+    private readonly Mock<ICartRepository> _cartRepository;
+    private readonly Mock<IWishlistRepository> _wishlistRepository;
     private readonly UserService _service;
 
     public UserServiceTests()
     {
-        _repoMock = new Mock<IUserRepository>();
-        _service = new UserService(_repoMock.Object);
+        _repository = new Mock<IUserRepository>();
+        _cartRepository = new Mock<ICartRepository>();
+        _wishlistRepository = new Mock<IWishlistRepository>();
+
+        _service = new UserService(
+            _repository.Object,
+            _cartRepository.Object,
+            _wishlistRepository.Object);
     }
 
     // =========================================================
@@ -30,7 +38,7 @@ public class UserServiceTests
             CreateUser()
         };
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(users);
 
@@ -39,13 +47,13 @@ public class UserServiceTests
         Assert.Equal(2, result.Count);
         Assert.Equal(users, result);
 
-        _repoMock.Verify(r => r.GetAllAsync(), Times.Once);
+        _repository.Verify(r => r.GetAllAsync(), Times.Once);
     }
 
     [Fact]
     public async Task GetAllAsync_ShouldReturnEmptyList_WhenNoUsersExist()
     {
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>());
 
@@ -64,7 +72,7 @@ public class UserServiceTests
     {
         var user = CreateUser();
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(user.Id))
             .ReturnsAsync(user);
 
@@ -83,7 +91,7 @@ public class UserServiceTests
     {
         var id = ObjectId.GenerateNewId().ToString();
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync((User?)null);
 
@@ -109,7 +117,7 @@ public class UserServiceTests
 
         Assert.Null(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.GetByIdAsync(It.IsAny<string>()),
             Times.Never);
     }
@@ -141,7 +149,7 @@ public class UserServiceTests
 
         user.IsEmailVerified = true;
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(user.Id))
             .ReturnsAsync(user);
 
@@ -182,7 +190,7 @@ public class UserServiceTests
 
         Assert.Null(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.CreateAsync(It.IsAny<User>()),
             Times.Never);
     }
@@ -201,7 +209,7 @@ public class UserServiceTests
 
         Assert.Null(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.CreateAsync(It.IsAny<User>()),
             Times.Never);
     }
@@ -220,7 +228,7 @@ public class UserServiceTests
 
         Assert.Null(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.CreateAsync(It.IsAny<User>()),
             Times.Never);
     }
@@ -234,7 +242,7 @@ public class UserServiceTests
         var newUser = CreateUser();
         newUser.Email = "existing@example.com";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
@@ -245,7 +253,7 @@ public class UserServiceTests
 
         Assert.Null(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.CreateAsync(It.IsAny<User>()),
             Times.Never);
     }
@@ -259,7 +267,7 @@ public class UserServiceTests
         var newUser = CreateUser();
         newUser.Email = "USER@EXAMPLE.COM";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
@@ -270,7 +278,7 @@ public class UserServiceTests
 
         Assert.Null(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.CreateAsync(It.IsAny<User>()),
             Times.Never);
     }
@@ -281,11 +289,11 @@ public class UserServiceTests
         var user = CreateUser();
         user.Email = "  user@example.com  ";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>());
 
-        _repoMock
+        _repository
             .Setup(r => r.CreateAsync(It.IsAny<User>()))
             .Returns(Task.CompletedTask);
 
@@ -294,7 +302,7 @@ public class UserServiceTests
         Assert.NotNull(result);
         Assert.Equal("user@example.com", result!.Email);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.CreateAsync(It.Is<User>(
                 u => u.Email == "user@example.com")),
             Times.Once);
@@ -306,11 +314,11 @@ public class UserServiceTests
         var user = CreateUser();
         user.Id = "";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>());
 
-        _repoMock
+        _repository
             .Setup(r => r.CreateAsync(It.IsAny<User>()))
             .Returns(Task.CompletedTask);
 
@@ -320,7 +328,7 @@ public class UserServiceTests
         Assert.False(string.IsNullOrWhiteSpace(result!.Id));
         Assert.True(ObjectId.TryParse(result.Id, out _));
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.CreateAsync(It.IsAny<User>()),
             Times.Once);
     }
@@ -331,11 +339,11 @@ public class UserServiceTests
         var user = CreateUser();
         user.Id = "invalid-id";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>());
 
-        _repoMock
+        _repository
             .Setup(r => r.CreateAsync(It.IsAny<User>()))
             .Returns(Task.CompletedTask);
 
@@ -344,7 +352,7 @@ public class UserServiceTests
         Assert.NotNull(result);
         Assert.True(ObjectId.TryParse(result!.Id, out _));
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.CreateAsync(It.IsAny<User>()),
             Times.Once);
     }
@@ -357,11 +365,11 @@ public class UserServiceTests
         user.CreatedAt = default;
         user.UpdatedAt = default;
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>());
 
-        _repoMock
+        _repository
             .Setup(r => r.CreateAsync(It.IsAny<User>()))
             .Returns(Task.CompletedTask);
 
@@ -381,11 +389,11 @@ public class UserServiceTests
 
         user.IsEmailVerified = false;
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>());
 
-        _repoMock
+        _repository
             .Setup(r => r.CreateAsync(It.IsAny<User>()))
             .Returns(Task.CompletedTask);
 
@@ -402,11 +410,11 @@ public class UserServiceTests
 
         user.IsEmailVerified = true;
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>());
 
-        _repoMock
+        _repository
             .Setup(r => r.CreateAsync(It.IsAny<User>()))
             .Returns(Task.CompletedTask);
 
@@ -423,11 +431,11 @@ public class UserServiceTests
 
         user.Roles = new List<string>();
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>());
 
-        _repoMock
+        _repository
             .Setup(r => r.CreateAsync(It.IsAny<User>()))
             .Returns(Task.CompletedTask);
 
@@ -450,11 +458,11 @@ public class UserServiceTests
             "User"
         };
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>());
 
-        _repoMock
+        _repository
             .Setup(r => r.CreateAsync(It.IsAny<User>()))
             .Returns(Task.CompletedTask);
 
@@ -492,11 +500,11 @@ public class UserServiceTests
             Country = "Sweden"
         };
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>());
 
-        _repoMock
+        _repository
             .Setup(r => r.CreateAsync(It.IsAny<User>()))
             .Returns(Task.CompletedTask);
 
@@ -539,7 +547,7 @@ public class UserServiceTests
 
         Assert.Null(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.GetByIdAsync(It.IsAny<string>()),
             Times.Never);
     }
@@ -589,7 +597,7 @@ public class UserServiceTests
     {
         var id = ObjectId.GenerateNewId().ToString();
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync((User?)null);
 
@@ -616,11 +624,11 @@ public class UserServiceTests
         var otherUser = CreateUser();
         otherUser.Email = "taken@example.com";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
@@ -638,7 +646,7 @@ public class UserServiceTests
 
         Assert.Null(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.UpdateAsync(It.IsAny<User>()),
             Times.Never);
     }
@@ -655,11 +663,11 @@ public class UserServiceTests
         var otherUser = CreateUser();
         otherUser.Email = "taken@example.com";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
@@ -677,7 +685,7 @@ public class UserServiceTests
 
         Assert.Null(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.UpdateAsync(It.IsAny<User>()),
             Times.Never);
     }
@@ -695,18 +703,18 @@ public class UserServiceTests
         existingUser.Id = id;
         existingUser.Email = "old@example.com";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
@@ -734,18 +742,18 @@ public class UserServiceTests
         existingUser.Email = "old@example.com";
         existingUser.FullName = "Old Name";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
@@ -762,7 +770,7 @@ public class UserServiceTests
         Assert.Equal("New Name", result!.FullName);
         Assert.Equal("new@example.com", result.Email);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.UpdateAsync(It.Is<User>(
                 u =>
                     u.Id == id &&
@@ -780,18 +788,18 @@ public class UserServiceTests
         existingUser.Id = id;
         existingUser.Email = "user@example.com";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
@@ -806,7 +814,7 @@ public class UserServiceTests
         Assert.NotNull(result);
         Assert.Equal("user@example.com", result!.Email);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.UpdateAsync(It.IsAny<User>()),
             Times.Once);
     }
@@ -824,24 +832,24 @@ public class UserServiceTests
         existingUser.Id = id;
         existingUser.PhoneNumber = "+46111111111";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
         var result = await _service.UpdateProfileAsync(
             id,
-            existingUser.FullName,
+            existingUser.FullName ?? "Test User",
             existingUser.Email,
             "+46701234567",
             null,
@@ -850,7 +858,7 @@ public class UserServiceTests
         Assert.NotNull(result);
         Assert.Equal("+46701234567", result!.PhoneNumber);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.UpdateAsync(It.Is<User>(
                 u => u.PhoneNumber == "+46701234567")),
             Times.Once);
@@ -865,24 +873,24 @@ public class UserServiceTests
         existingUser.Id = id;
         existingUser.PhoneNumber = "+46701234567";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
         var result = await _service.UpdateProfileAsync(
             id,
-            existingUser.FullName,
+            existingUser.FullName ?? "Test User",
             existingUser.Email,
             "   ",
             null,
@@ -901,24 +909,24 @@ public class UserServiceTests
         existingUser.Id = id;
         existingUser.PhoneNumber = "+46701234567";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
         var result = await _service.UpdateProfileAsync(
             id,
-            existingUser.FullName,
+            existingUser.FullName ?? "Test User",
             existingUser.Email,
             null,
             null,
@@ -949,24 +957,24 @@ public class UserServiceTests
             Country = "Sweden"
         };
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
         var result = await _service.UpdateProfileAsync(
             id,
-            existingUser.FullName,
+            existingUser.FullName ?? "Test User",
             existingUser.Email,
             null,
             shippingAddress,
@@ -1001,24 +1009,24 @@ public class UserServiceTests
             Country = "Sweden"
         };
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
         var result = await _service.UpdateProfileAsync(
             id,
-            existingUser.FullName,
+            existingUser.FullName ?? "Test User",
             existingUser.Email,
             null,
             null,
@@ -1062,24 +1070,24 @@ public class UserServiceTests
             Country = "Sweden"
         };
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
         var result = await _service.UpdateProfileAsync(
             id,
-            existingUser.FullName,
+            existingUser.FullName ?? "Test User",
             existingUser.Email,
             null,
             shippingAddress,
@@ -1124,24 +1132,24 @@ public class UserServiceTests
             Country = "Sweden"
         };
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
         var result = await _service.UpdateProfileAsync(
             id,
-            existingUser.FullName,
+            existingUser.FullName ?? "Test User",
             existingUser.Email,
             null,
             null,
@@ -1175,18 +1183,18 @@ public class UserServiceTests
         existingUser.Id = id;
         existingUser.UpdatedAt = oldUpdatedAt;
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
@@ -1214,18 +1222,18 @@ public class UserServiceTests
         existingUser.Id = id;
         existingUser.CreatedAt = createdAt;
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
@@ -1256,18 +1264,18 @@ public class UserServiceTests
         existingUser.Email = "verified@example.com";
         existingUser.IsEmailVerified = true;
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
@@ -1294,18 +1302,18 @@ public class UserServiceTests
         existingUser.Email = "old@example.com";
         existingUser.IsEmailVerified = true;
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
@@ -1336,18 +1344,18 @@ public class UserServiceTests
         existingUser.Id = id;
         existingUser.PasswordHash = "original-password-hash";
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(true);
 
@@ -1378,18 +1386,18 @@ public class UserServiceTests
         var existingUser = CreateUser();
         existingUser.Id = id;
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(existingUser);
 
-        _repoMock
+        _repository
             .Setup(r => r.GetAllAsync())
             .ReturnsAsync(new List<User>
             {
                 existingUser
             });
 
-        _repoMock
+        _repository
             .Setup(r => r.UpdateAsync(It.IsAny<User>()))
             .ReturnsAsync(false);
 
@@ -1417,7 +1425,7 @@ public class UserServiceTests
 
         Assert.False(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.AddRoleAsync(
                 It.IsAny<string>(),
                 It.IsAny<string>()),
@@ -1439,7 +1447,7 @@ public class UserServiceTests
 
         Assert.False(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.AddRoleAsync(
                 It.IsAny<string>(),
                 It.IsAny<string>()),
@@ -1451,7 +1459,7 @@ public class UserServiceTests
     {
         var id = ObjectId.GenerateNewId().ToString();
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync((User?)null);
 
@@ -1475,7 +1483,7 @@ public class UserServiceTests
             "Admin"
         };
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(user);
 
@@ -1485,7 +1493,7 @@ public class UserServiceTests
 
         Assert.True(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.AddRoleAsync(
                 It.IsAny<string>(),
                 It.IsAny<string>()),
@@ -1504,11 +1512,11 @@ public class UserServiceTests
             "User"
         };
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(user);
 
-        _repoMock
+        _repository
             .Setup(r => r.AddRoleAsync(id, "Admin"))
             .ReturnsAsync(true);
 
@@ -1518,7 +1526,7 @@ public class UserServiceTests
 
         Assert.True(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.AddRoleAsync(id, "Admin"),
             Times.Once);
     }
@@ -1535,11 +1543,11 @@ public class UserServiceTests
             "User"
         };
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(user);
 
-        _repoMock
+        _repository
             .Setup(r => r.AddRoleAsync(id, "Admin"))
             .ReturnsAsync(true);
 
@@ -1549,7 +1557,7 @@ public class UserServiceTests
 
         Assert.True(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.AddRoleAsync(id, "Admin"),
             Times.Once);
     }
@@ -1570,7 +1578,7 @@ public class UserServiceTests
 
         Assert.False(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.DeleteAsync(It.IsAny<string>()),
             Times.Never);
     }
@@ -1580,7 +1588,7 @@ public class UserServiceTests
     {
         var id = ObjectId.GenerateNewId().ToString();
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync((User?)null);
 
@@ -1588,7 +1596,7 @@ public class UserServiceTests
 
         Assert.False(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.DeleteAsync(It.IsAny<string>()),
             Times.Never);
     }
@@ -1601,11 +1609,11 @@ public class UserServiceTests
         var user = CreateUser();
         user.Id = id;
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(user);
 
-        _repoMock
+        _repository
             .Setup(r => r.DeleteAsync(id))
             .ReturnsAsync(true);
 
@@ -1613,7 +1621,7 @@ public class UserServiceTests
 
         Assert.True(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.DeleteAsync(id),
             Times.Once);
     }
@@ -1626,11 +1634,11 @@ public class UserServiceTests
         var user = CreateUser();
         user.Id = id;
 
-        _repoMock
+        _repository
             .Setup(r => r.GetByIdAsync(id))
             .ReturnsAsync(user);
 
-        _repoMock
+        _repository
             .Setup(r => r.DeleteAsync(id))
             .ReturnsAsync(false);
 
@@ -1638,7 +1646,7 @@ public class UserServiceTests
 
         Assert.False(result);
 
-        _repoMock.Verify(
+        _repository.Verify(
             r => r.DeleteAsync(id),
             Times.Once);
     }

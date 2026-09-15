@@ -48,6 +48,20 @@ export interface UserProfile {
   isEmailVerified?: boolean;
 }
 
+/**
+ * Admin user has the same safe fields as UserProfile.
+ * Keep AdminUser as an alias so existing admin components can use it.
+ */
+export type AdminUser = UserProfile;
+
+export interface UpdateRolesRequest {
+  roles: string[];
+}
+
+export interface AddRoleResponse {
+  message: string;
+}
+
 export interface WishlistItem {
   productId: string;
   productName: string;
@@ -57,54 +71,86 @@ export interface WishlistItem {
 }
 
 /**
- * Core request wrapper with optional token support
+ * Core request wrapper
  */
 async function request<T>(
   path: string,
   options: RequestInit = {},
-  token?: string
+  token?: string,
 ): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(options.headers as Record<string, string> | undefined),
-  };
+  const headers = new Headers(options.headers);
+
+  headers.set("Content-Type", "application/json");
 
   if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers,
     cache: "no-store",
   });
 
-  if (!res.ok) {
-    const message = await res.text();
-    throw new Error(message || `Request failed: ${res.status}`);
+  if (!response.ok) {
+    const message = await response.text();
+
+    throw new Error(
+      message || `Request failed with status ${response.status}`,
+    );
   }
 
-  return res.json() as T;
+  /*
+   * Some successful endpoints may return an empty response.
+   * Avoid failing on response.json() in that case.
+   */
+  const contentType = response.headers.get("content-type");
+
+  if (!contentType?.includes("application/json")) {
+    return undefined as T;
+  }
+
+  return response.json() as Promise<T>;
 }
 
 /**
  * Client-side token helper
  */
 export function getClientToken(): string | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined") {
+    return null;
+  }
 
   return localStorage.getItem("token");
 }
 
-export function getClientUserId(): string | null {
+/**
+ * Decode the JWT payload.
+ *
+ * This is only used to read the user ID on the client.
+ * It does NOT validate the token.
+ *
+ * Token validation is still performed by the ASP.NET API.
+ */
+function getTokenPayload(): Record<string, unknown> | null {
   const token = getClientToken();
 
-  if (!token) return null;
+  if (!token) {
+    return null;
+  }
 
   try {
-    const payloadPart = token.split(".")[1];
+    const parts = token.split(".");
 
-    if (!payloadPart) return null;
+    if (parts.length !== 3) {
+      return null;
+    }
+
+    const payloadPart = parts[1];
+
+    if (!payloadPart) {
+      return null;
+    }
 
     const base64 = payloadPart
       .replace(/-/g, "+")
@@ -112,23 +158,106 @@ export function getClientUserId(): string | null {
 
     const padded = base64.padEnd(
       Math.ceil(base64.length / 4) * 4,
-      "="
+      "=",
     );
 
     const payload = JSON.parse(atob(padded));
 
-    return typeof payload.sub === "string"
-      ? payload.sub.trim()
-      : null;
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+
+    return payload as Record<string, unknown>;
   } catch {
     return null;
   }
 }
 
 /**
+ * Get the currently authenticated user's ID from the JWT.
+ *
+ * Supports the claims used by the ASP.NET backend:
+ * - sub
+ * - NameIdentifier
+ * - id
+ * - userId
+ */
+export function getClientUserId(): string | null {
+  const payload = getTokenPayload();
+
+  if (!payload) {
+    return null;
+  }
+
+  const possibleIds = [
+    payload.sub,
+    payload[
+      "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+    ],
+    payload.nameid,
+    payload.id,
+    payload.userId,
+  ];
+
+  for (const value of possibleIds) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get the roles from the JWT when available.
+ *
+ * This is useful for UI decisions only.
+ * The backend remains responsible for authorization.
+ */
+export function getClientRoles(): string[] {
+  const payload = getTokenPayload();
+
+  if (!payload) {
+    return [];
+  }
+
+  const roleClaim =
+    payload.role ??
+    payload.roles ??
+    payload[
+      "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+    ];
+
+  if (typeof roleClaim === "string") {
+    return [roleClaim.trim()].filter(Boolean);
+  }
+
+  if (Array.isArray(roleClaim)) {
+    return roleClaim
+      .filter((role): role is string => typeof role === "string")
+      .map((role) => role.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+/**
+ * Check whether the current JWT contains the Admin role.
+ *
+ * This is for frontend UI visibility only.
+ * The API must still enforce [Authorize]/admin authorization.
+ */
+export function clientIsAdmin(): boolean {
+  return getClientRoles().some(
+    (role) => role.toLowerCase() === "admin",
+  );
+}
+
+/**
  * Logout helper
  */
-export function logout() {
+export function logout(): void {
   if (typeof window !== "undefined") {
     localStorage.removeItem("token");
   }
@@ -146,10 +275,13 @@ export const api = {
     email: string;
     password: string;
   }) =>
-    request<{ token: string }>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    request<{ token: string; expires?: string }>(
+      "/auth/login",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+    ),
 
   // =========================================================
   // PROFILE
@@ -157,9 +289,9 @@ export const api = {
 
   getUserProfile: (id: string) =>
     request<UserProfile>(
-      `/users/${id}`,
+      `/users/${encodeURIComponent(id)}`,
       {},
-      getClientToken() || undefined
+      getClientToken() || undefined,
     ),
 
   updateUserProfile: (
@@ -170,15 +302,15 @@ export const api = {
       phoneNumber?: string | null;
       shippingAddress?: Address | null;
       billingAddress?: Address | null;
-    }
+    },
   ) =>
     request<UserProfile>(
-      `/users/${id}`,
+      `/users/${encodeURIComponent(id)}`,
       {
         method: "PUT",
         body: JSON.stringify(data),
       },
-      getClientToken() || undefined
+      getClientToken() || undefined,
     ),
 
   // =========================================================
@@ -189,7 +321,9 @@ export const api = {
     request<Product[]>("/products"),
 
   getProduct: (id: string) =>
-    request<Product>(`/products/${id}`),
+    request<Product>(
+      `/products/${encodeURIComponent(id)}`,
+    ),
 
   // =========================================================
   // CART
@@ -199,12 +333,12 @@ export const api = {
     request<CartResponse>(
       "/cart",
       {},
-      getClientToken() || undefined
+      getClientToken() || undefined,
     ),
 
   addToCart: (
     productId: string,
-    quantity = 1
+    quantity = 1,
   ) => {
     const params = new URLSearchParams({
       productId,
@@ -216,13 +350,13 @@ export const api = {
       {
         method: "POST",
       },
-      getClientToken() || undefined
+      getClientToken() || undefined,
     );
   },
 
   updateCartItem: (
     productId: string,
-    quantity: number
+    quantity: number,
   ) => {
     const params = new URLSearchParams({
       productId,
@@ -234,7 +368,7 @@ export const api = {
       {
         method: "PUT",
       },
-      getClientToken() || undefined
+      getClientToken() || undefined,
     );
   },
 
@@ -248,7 +382,7 @@ export const api = {
       {
         method: "DELETE",
       },
-      getClientToken() || undefined
+      getClientToken() || undefined,
     );
   },
 
@@ -258,7 +392,7 @@ export const api = {
       {
         method: "DELETE",
       },
-      getClientToken() || undefined
+      getClientToken() || undefined,
     ),
 
   // =========================================================
@@ -269,7 +403,7 @@ export const api = {
     request<WishlistItem[]>(
       "/wishlist",
       {},
-      getClientToken() || undefined
+      getClientToken() || undefined,
     ),
 
   addToWishlist: (productId: string) =>
@@ -277,9 +411,11 @@ export const api = {
       "/wishlist/add",
       {
         method: "POST",
-        body: JSON.stringify({ productId }),
+        body: JSON.stringify({
+          productId,
+        }),
       },
-      getClientToken() || undefined
+      getClientToken() || undefined,
     ),
 
   removeFromWishlist: (productId: string) =>
@@ -287,8 +423,67 @@ export const api = {
       "/wishlist/remove",
       {
         method: "DELETE",
-        body: JSON.stringify({ productId }),
+        body: JSON.stringify({
+          productId,
+        }),
       },
-      getClientToken() || undefined
+      getClientToken() || undefined,
+    ),
+
+  // =========================================================
+  // ADMIN - USERS
+  // =========================================================
+
+  getUsers: () =>
+    request<AdminUser[]>(
+      "/users",
+      {},
+      getClientToken() || undefined,
+    ),
+
+  getUserById: (id: string) =>
+    request<AdminUser>(
+      `/users/${encodeURIComponent(id)}`,
+      {},
+      getClientToken() || undefined,
+    ),
+
+  updateUserRoles: (
+    id: string,
+    roles: string[],
+  ) =>
+    request<AdminUser>(
+      `/users/${encodeURIComponent(id)}/roles`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          roles,
+        } satisfies UpdateRolesRequest),
+      },
+      getClientToken() || undefined,
+    ),
+
+  addUserRole: (
+    id: string,
+    role: string,
+  ) =>
+    request<AddRoleResponse>(
+      `/users/${encodeURIComponent(id)}/roles`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          role,
+        }),
+      },
+      getClientToken() || undefined,
+    ),
+
+  deleteUser: (id: string) =>
+    request<{ message: string }>(
+      `/users/${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+      },
+      getClientToken() || undefined,
     ),
 };

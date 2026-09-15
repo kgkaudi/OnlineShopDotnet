@@ -7,4 +7,5 @@ public interface IWishlistRepository
     Task<List<WishlistItem>> GetByUserIdAsync(string userId);
     Task<bool> AddAsync(WishlistItem item);
     Task<bool> RemoveAsync(string userId, string productId);
+    Task<bool> DeleteByUserIdAsync(string userId);
 }

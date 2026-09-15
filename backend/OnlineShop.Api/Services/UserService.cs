@@ -7,36 +7,62 @@ namespace OnlineShop.Api.Services;
 public class UserService : IUserService
 {
     private readonly IUserRepository _repo;
+    private readonly ICartRepository _cartRepo;
+    private readonly IWishlistRepository _wishlistRepo;
 
-    public UserService(IUserRepository repo)
+    public UserService(
+        IUserRepository repo,
+        ICartRepository cartRepo,
+        IWishlistRepository wishlistRepo)
     {
         _repo = repo;
+        _cartRepo = cartRepo;
+        _wishlistRepo = wishlistRepo;
     }
 
     // ---------------------------------------------------------
     // VALIDATION HELPERS
     // ---------------------------------------------------------
 
-    private static bool IsValidObjectId(string id)
+    private static bool IsValidObjectId(string? id)
     {
         return !string.IsNullOrWhiteSpace(id)
             && ObjectId.TryParse(id, out _);
     }
 
-    private static bool IsValidRole(string role)
+    private static bool IsValidRole(string? role)
     {
         return !string.IsNullOrWhiteSpace(role);
     }
 
-    private static bool IsValidUser(User user)
+    private static bool IsValidUser(User? user)
     {
         if (user == null)
             return false;
 
-        if (string.IsNullOrWhiteSpace(user.Email))
-            return false;
+        return !string.IsNullOrWhiteSpace(user.Email);
+    }
 
-        return true;
+    private static readonly string[] AllowedRoles =
+    {
+        "User",
+        "Admin"
+    };
+
+    private static List<string> NormalizeRoles(IEnumerable<string>? roles)
+    {
+        if (roles == null)
+            return new List<string>();
+
+        return roles
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Select(role => role.Trim())
+            .Where(role =>
+                AllowedRoles.Contains(
+                    role,
+                    StringComparer.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     // ---------------------------------------------------------
@@ -65,6 +91,7 @@ public class UserService : IUserService
         if (user == null)
             return null;
 
+        // Normal users may only access their own profile.
         if (!isAdmin && currentUserId != id)
             return null;
 
@@ -104,28 +131,26 @@ public class UserService : IUserService
         if (emailExists)
             return null;
 
-        // Ensure every new user has the default role.
+        // -----------------------------------------------------
+        // Roles
+        // -----------------------------------------------------
+
         if (user.Roles == null || user.Roles.Count == 0)
         {
             user.Roles = new List<string> { "User" };
         }
         else
         {
-            // Clean supplied roles.
-            user.Roles = user.Roles
-                .Where(role => !string.IsNullOrWhiteSpace(role))
-                .Select(role => role.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            user.Roles = NormalizeRoles(user.Roles);
 
-            // If all supplied roles were empty/whitespace,
-            // fall back to the default User role.
             if (user.Roles.Count == 0)
                 user.Roles = new List<string> { "User" };
         }
 
-        // Initialize timestamps only when they haven't
-        // already been supplied.
+        // -----------------------------------------------------
+        // Timestamps
+        // -----------------------------------------------------
+
         if (user.CreatedAt == default)
             user.CreatedAt = DateTime.UtcNow;
 
@@ -159,6 +184,14 @@ public class UserService : IUserService
 
         role = role.Trim();
 
+        // Only allow roles supported by the application.
+        if (!AllowedRoles.Contains(
+                role,
+                StringComparer.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         var existing = await _repo.GetByIdAsync(userId);
 
         if (existing == null)
@@ -176,6 +209,42 @@ public class UserService : IUserService
         }
 
         return await _repo.AddRoleAsync(userId, role);
+    }
+
+    // ---------------------------------------------------------
+    // UPDATE ROLES
+    // ---------------------------------------------------------
+
+    public async Task<User?> UpdateRolesAsync(
+        string userId,
+        List<string> roles)
+    {
+        if (!IsValidObjectId(userId))
+            return null;
+
+        if (roles == null)
+            return null;
+
+        var normalizedRoles = NormalizeRoles(roles);
+
+        // A user must always have at least one valid role.
+        if (normalizedRoles.Count == 0)
+            return null;
+
+        var existing = await _repo.GetByIdAsync(userId);
+
+        if (existing == null)
+            return null;
+
+        existing.Roles = normalizedRoles;
+        existing.UpdatedAt = DateTime.UtcNow;
+
+        var updated = await _repo.UpdateAsync(existing);
+
+        if (!updated)
+            return null;
+
+        return existing;
     }
 
     // ---------------------------------------------------------
@@ -324,8 +393,25 @@ public class UserService : IUserService
             return false;
 
         var existing = await _repo.GetByIdAsync(id);
+
         if (existing == null)
             return false;
+
+        // -----------------------------------------------------
+        // Delete user's cart
+        // -----------------------------------------------------
+
+        await _cartRepo.DeleteByUserIdAsync(id);
+
+        // -----------------------------------------------------
+        // Delete user's wishlist
+        // -----------------------------------------------------
+
+        await _wishlistRepo.DeleteByUserIdAsync(id);
+
+        // -----------------------------------------------------
+        // Delete user
+        // -----------------------------------------------------
 
         return await _repo.DeleteAsync(id);
     }

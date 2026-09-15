@@ -4,18 +4,28 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/src/store/authStore";
 import { logout as logoutApi } from "@/src/api/auth";
+import { clientIsAdmin } from "@/src/lib/api";
 import { useEffect, useState } from "react";
 
 export default function Header() {
   const router = useRouter();
+
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const setLoggedIn = useAuthStore((state) => state.setLoggedIn);
+
   const [hydrated, setHydrated] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     setHydrated(true);
-  }, []);
+
+    if (isLoggedIn) {
+      setIsAdmin(clientIsAdmin());
+    } else {
+      setIsAdmin(false);
+    }
+  }, [isLoggedIn]);
 
   async function handleLogout() {
     try {
@@ -24,7 +34,10 @@ export default function Header() {
       console.error("Logout failed:", err);
     }
 
+    setIsAdmin(false);
     setLoggedIn(false);
+    setMenuOpen(false);
+
     router.push("/auth/login");
   }
 
@@ -38,26 +51,57 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6 text-sm">
-          <Link href="/products" className="text-black hover:underline">
+          <Link
+            href="/products"
+            className="text-black hover:underline"
+          >
             Products
           </Link>
-          <Link href="/cart" className="text-black hover:underline">
+
+          <Link
+            href="/cart"
+            className="text-black hover:underline"
+          >
             Cart
           </Link>
-          <Link href="/wishlist" className="text-black hover:underline">
+
+          <Link
+            href="/wishlist"
+            className="text-black hover:underline"
+          >
             Wishlist
           </Link>
 
+          {/* Logged-in user */}
           {hydrated && isLoggedIn && (
-            <Link href="/profile" className="text-black hover:underline">
-              Profile
-            </Link>
+            <>
+              <Link
+                href="/profile"
+                className="text-black hover:underline"
+              >
+                Profile
+              </Link>
+
+              {/* Admin */}
+              {isAdmin && (
+                <Link
+                  href="/admin/users"
+                  className="font-semibold text-black hover:underline"
+                >
+                  Admin
+                </Link>
+              )}
+            </>
           )}
 
+          {/* Authentication */}
           {hydrated && (
             <>
               {!isLoggedIn && (
-                <Link href="/auth/login" className="text-black hover:underline">
+                <Link
+                  href="/auth/login"
+                  className="text-black hover:underline"
+                >
                   Login
                 </Link>
               )}
@@ -76,8 +120,11 @@ export default function Header() {
 
         {/* Mobile Hamburger */}
         <button
+          type="button"
           className="md:hidden p-2 border rounded"
           onClick={() => setMenuOpen(true)}
+          aria-label="Open navigation menu"
+          aria-expanded={menuOpen}
         >
           <span className="text-xl">☰</span>
         </button>
@@ -88,6 +135,7 @@ export default function Header() {
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
           onClick={() => setMenuOpen(false)}
+          aria-hidden="true"
         />
       )}
 
@@ -97,26 +145,74 @@ export default function Header() {
           menuOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="p-6 flex flex-col space-y-4 text-lg"> {/* ✅ vertical layout */}
-          <Link href="/" onClick={() => setMenuOpen(false)} className="block">
+        <div className="p-6 flex flex-col space-y-4 text-lg">
+          {/* Close */}
+          <button
+            type="button"
+            onClick={() => setMenuOpen(false)}
+            className="self-end text-2xl leading-none mb-2"
+            aria-label="Close navigation menu"
+          >
+            ×
+          </button>
+
+          <Link
+            href="/"
+            onClick={() => setMenuOpen(false)}
+            className="block"
+          >
             Home
           </Link>
-          <Link href="/products" onClick={() => setMenuOpen(false)} className="block">
+
+          <Link
+            href="/products"
+            onClick={() => setMenuOpen(false)}
+            className="block"
+          >
             Products
           </Link>
-          <Link href="/cart" onClick={() => setMenuOpen(false)} className="block">
+
+          <Link
+            href="/cart"
+            onClick={() => setMenuOpen(false)}
+            className="block"
+          >
             Cart
           </Link>
-          <Link href="/wishlist" onClick={() => setMenuOpen(false)} className="block">
+
+          <Link
+            href="/wishlist"
+            onClick={() => setMenuOpen(false)}
+            className="block"
+          >
             Wishlist
           </Link>
 
+          {/* Logged-in user */}
           {hydrated && isLoggedIn && (
-            <Link href="/profile" onClick={() => setMenuOpen(false)} className="block">
-              Profile
-            </Link>
+            <>
+              <Link
+                href="/profile"
+                onClick={() => setMenuOpen(false)}
+                className="block"
+              >
+                Profile
+              </Link>
+
+              {/* Admin */}
+              {isAdmin && (
+                <Link
+                  href="/admin/users"
+                  onClick={() => setMenuOpen(false)}
+                  className="block font-semibold"
+                >
+                  Admin
+                </Link>
+              )}
+            </>
           )}
 
+          {/* Authentication */}
           {hydrated && (
             <>
               {!isLoggedIn && (
@@ -131,10 +227,8 @@ export default function Header() {
 
               {isLoggedIn && (
                 <button
-                  onClick={() => {
-                    handleLogout();
-                    setMenuOpen(false);
-                  }}
+                  type="button"
+                  onClick={handleLogout}
                   className="text-left w-full"
                 >
                   Logout

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OnlineShop.Api.Dtos;
 using OnlineShop.Api.Services;
+using System.Security.Claims;
 
 namespace OnlineShop.Api.Controllers;
 
@@ -25,8 +26,7 @@ public class AuthController : ControllerBase
     // ---------------------------------------------------------
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register(
-        RegisterDto? dto)
+    public async Task<IActionResult> Register(RegisterDto? dto)
     {
         if (dto == null)
             return BadRequest("Invalid request.");
@@ -50,8 +50,7 @@ public class AuthController : ControllerBase
         if (password.Length < 3)
             return BadRequest("Password is too short.");
 
-        var phoneNumber = string.IsNullOrWhiteSpace(
-            dto.PhoneNumber)
+        var phoneNumber = string.IsNullOrWhiteSpace(dto.PhoneNumber)
             ? null
             : dto.PhoneNumber.Trim();
 
@@ -72,17 +71,11 @@ public class AuthController : ControllerBase
             email = user.Email,
             fullName = user.FullName,
             roles = user.Roles,
-
             phoneNumber = user.PhoneNumber,
-
             shippingAddress = user.ShippingAddress,
-
             billingAddress = user.BillingAddress,
-
             createdAt = user.CreatedAt,
-
             updatedAt = user.UpdatedAt,
-
             isEmailVerified = user.IsEmailVerified
         });
     }
@@ -92,8 +85,7 @@ public class AuthController : ControllerBase
     // ---------------------------------------------------------
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login(
-        LoginDto? dto)
+    public async Task<IActionResult> Login(LoginDto? dto)
     {
         if (dto == null)
             return BadRequest("Invalid request.");
@@ -125,29 +117,44 @@ public class AuthController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // LOGOUT (REAL TOKEN INVALIDATION)
+    // LOGOUT
+    // Real token invalidation
     // ---------------------------------------------------------
 
-    [HttpPost("logout")]
     [Authorize]
+    [HttpPost("logout")]
     public async Task<IActionResult> Logout()
     {
-        var userId =
-            User.FindFirst("id")?.Value;
+        // -----------------------------------------------------
+        // Extract user ID from claims
+        //
+        // JWT normally uses "sub".
+        // NameIdentifier is supported for ASP.NET compatibility.
+        // "id" and "userId" are supported for older tokens/tests.
+        // -----------------------------------------------------
 
-        if (string.IsNullOrEmpty(userId))
+        var userId = GetUserId();
+
+        if (string.IsNullOrWhiteSpace(userId))
             return Unauthorized("Invalid token.");
 
-        // Extract token from Authorization header
-        var authHeader =
-            Request.Headers["Authorization"].ToString();
+        // -----------------------------------------------------
+        // Extract Bearer token
+        //
+        // Supports:
+        //   Bearer token
+        //   Bearer    token
+        //   bearer token
+        // -----------------------------------------------------
 
-        var token = authHeader
-            .Replace("Bearer ", "")
-            .Trim();
+        var token = ExtractBearerToken();
 
         if (string.IsNullOrWhiteSpace(token))
-            return Unauthorized("Missing token.");
+            return Unauthorized("Invalid authorization header.");
+
+        // -----------------------------------------------------
+        // Invalidate token
+        // -----------------------------------------------------
 
         var success = await _auth.LogoutAsync(
             userId,
@@ -160,5 +167,50 @@ public class AuthController : ControllerBase
         {
             message = "Logged out successfully."
         });
+    }
+
+    // ---------------------------------------------------------
+    // HELPERS
+    // ---------------------------------------------------------
+
+    private string? GetUserId()
+    {
+        var userId =
+            User.FindFirst("sub")?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? User.FindFirst("id")?.Value
+            ?? User.FindFirst("userId")?.Value;
+
+        return userId?.Trim();
+    }
+
+    private string? ExtractBearerToken()
+    {
+        var authorization =
+            Request.Headers.Authorization.ToString();
+
+        if (string.IsNullOrWhiteSpace(authorization))
+            return null;
+
+        var parts = authorization
+            .Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length != 2)
+            return null;
+
+        if (!parts[0].Equals(
+                "Bearer",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var token = parts[1].Trim();
+
+        return string.IsNullOrWhiteSpace(token)
+            ? null
+            : token;
     }
 }

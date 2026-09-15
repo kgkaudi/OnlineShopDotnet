@@ -5,11 +5,29 @@ namespace OnlineShop.Api.Services;
 public interface IUserService
 {
     Task<List<User>> GetAllAsync();
-    Task<User?> GetByIdAsync(string id, string currentUserId, bool isAdmin);
+
+    Task<User?> GetByIdAsync(
+        string id,
+        string currentUserId,
+        bool isAdmin);
 
     Task<User?> CreateAsync(User user);
-    Task<User?> UpdateProfileAsync(string id, string fullName, string email, string? phoneNumber = null, Address? shippingAddress = null, Address? billingAddress = null);
 
-    Task<bool> AddRoleAsync(string userId, string role);
+    Task<User?> UpdateProfileAsync(
+        string id,
+        string fullName,
+        string email,
+        string? phoneNumber = null,
+        Address? shippingAddress = null,
+        Address? billingAddress = null);
+
+    Task<bool> AddRoleAsync(
+        string userId,
+        string role);
+
+    Task<User?> UpdateRolesAsync(
+        string userId,
+        List<string> roles);
+
     Task<bool> DeleteAsync(string id);
 }

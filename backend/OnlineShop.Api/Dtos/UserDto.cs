@@ -14,3 +14,8 @@ public class UpdateProfileDto
 
     public Address? BillingAddress { get; set; }
 }
+
+public class UpdateRolesDto
+{
+    public List<string> Roles { get; set; } = new();
+}

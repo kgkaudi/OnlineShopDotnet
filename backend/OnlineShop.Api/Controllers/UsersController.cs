@@ -1,9 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using OnlineShop.Api.Services;
 using MongoDB.Bson;
 using OnlineShop.Api.DTOs;
 using OnlineShop.Api.Models;
+using OnlineShop.Api.Services;
+using System.Security.Claims;
 
 namespace OnlineShop.Api.Controllers;
 
@@ -18,16 +19,20 @@ public class UsersController : ControllerBase
         _service = service;
     }
 
+    // ---------------------------------------------------------
+    // HELPERS
+    // ---------------------------------------------------------
+
     private string? GetUserId()
     {
         return User.FindFirst("sub")?.Value?.Trim()
-            ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
-                ?.Value?.Trim();
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value?.Trim();
     }
 
-    private bool IsValidObjectId(string? id)
+    private static bool IsValidObjectId(string? id)
     {
-        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+        return !string.IsNullOrWhiteSpace(id)
+            && ObjectId.TryParse(id, out _);
     }
 
     private bool IsAdmin()
@@ -36,8 +41,10 @@ public class UsersController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // GET ALL USERS (Admin only)
+    // GET ALL USERS
+    // Admin only
     // ---------------------------------------------------------
+
     [Authorize]
     [HttpGet]
     public async Task<IActionResult> GetAll()
@@ -51,13 +58,16 @@ public class UsersController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // GET USER BY ID (Admin or the user themselves)
+    // GET USER BY ID
+    // Admin or the user themselves
     // ---------------------------------------------------------
+
     [Authorize]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string? id)
     {
         var currentUserId = GetUserId();
+
         if (!IsValidObjectId(currentUserId))
             return Unauthorized("Invalid user token.");
 
@@ -66,32 +76,36 @@ public class UsersController : ControllerBase
 
         var isAdmin = IsAdmin();
 
-        // Fetch without ownership restriction so we can distinguish
-        // between NotFound and Forbid.
-        var existenceCheck = await _service.GetByIdAsync(
+        // First determine whether the requested user exists.
+        var user = await _service.GetByIdAsync(
             id!,
             id!,
             true
         );
 
-        if (existenceCheck == null)
+        if (user == null)
             return NotFound("User not found.");
 
+        // Normal users can only access their own profile.
         if (!isAdmin && currentUserId != id)
             return Forbid();
 
-        return Ok(MapUserResponse(existenceCheck));
+        return Ok(MapUserResponse(user));
     }
 
     // ---------------------------------------------------------
-    // ADD ROLE TO USER (Admin only)
+    // ADD ROLE
+    // Admin only
     // ---------------------------------------------------------
+
     [Authorize]
     [HttpPost("{id}/roles")]
-    public async Task<IActionResult> AddRole(string? id, [FromBody] string? role)
+    public async Task<IActionResult> AddRole(
+        string? id,
+        [FromBody] string? role)
     {
         if (!IsAdmin())
-            return Unauthorized("Admin only.");
+            return Forbid();
 
         if (!IsValidObjectId(id))
             return BadRequest("Invalid user id.");
@@ -101,21 +115,100 @@ public class UsersController : ControllerBase
 
         role = role.Trim();
 
-        var success = await _service.AddRoleAsync(id!, role);
+        var success = await _service.AddRoleAsync(
+            id!,
+            role
+        );
 
         if (!success)
             return NotFound("User not found.");
 
-        return Ok(new { message = $"Role '{role}' added to user {id}" });
+        return Ok(new
+        {
+            message = $"Role '{role}' added to user {id}"
+        });
+    }
+
+    // ---------------------------------------------------------
+    // UPDATE ROLES
+    // Admin only
+    //
+    // Body:
+    // {
+    //     "roles": ["User", "Admin"]
+    // }
+    // ---------------------------------------------------------
+
+    [Authorize]
+    [HttpPut("{id}/roles")]
+    public async Task<IActionResult> UpdateRoles(
+        string? id,
+        [FromBody] UpdateRolesDto? dto)
+    {
+        if (!IsAdmin())
+            return Forbid();
+
+        if (!IsValidObjectId(id))
+            return BadRequest("Invalid user id.");
+
+        if (dto == null)
+            return BadRequest("Invalid request.");
+
+        if (dto.Roles == null || dto.Roles.Count == 0)
+            return BadRequest("At least one role is required.");
+
+        var requestedRoles = dto.Roles
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Select(role => role.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (requestedRoles.Count == 0)
+            return BadRequest("At least one valid role is required.");
+
+        // Only roles supported by the application are allowed.
+        var allowedRoles = new HashSet<string>(
+            new[] { "User", "Admin" },
+            StringComparer.OrdinalIgnoreCase);
+
+        if (requestedRoles.Any(role => !allowedRoles.Contains(role)))
+        {
+            return BadRequest(
+                "Invalid role. Allowed roles are: User, Admin.");
+        }
+
+        // Prevent an administrator from removing their own Admin role.
+        var currentUserId = GetUserId();
+
+        if (IsValidObjectId(currentUserId) &&
+            string.Equals(currentUserId, id, StringComparison.OrdinalIgnoreCase) &&
+            !requestedRoles.Any(role =>
+                string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase)))
+        {
+            return BadRequest(
+                "You cannot remove the Admin role from your own account.");
+        }
+
+        var updatedUser = await _service.UpdateRolesAsync(
+            id!,
+            requestedRoles);
+
+        if (updatedUser == null)
+            return NotFound("User not found.");
+
+        return Ok(MapUserResponse(updatedUser));
     }
 
     // ---------------------------------------------------------
     // UPDATE USER PROFILE
     // Admin or the user themselves
     // ---------------------------------------------------------
+
     [Authorize]
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(string? id, [FromBody] UpdateProfileDto? dto)
+    public async Task<IActionResult> Update(
+        string? id,
+        [FromBody] UpdateProfileDto? dto)
     {
         var currentUserId = GetUserId();
 
@@ -140,22 +233,16 @@ public class UsersController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.Email))
             return BadRequest("Email is required.");
 
+        // Basic email validation.
         if (!dto.Email.Contains("@"))
             return BadRequest("Invalid email format.");
 
-        // -----------------------------------------------------
-        // Validate phone number if supplied
-        // -----------------------------------------------------
-
+        // Empty phone number is treated as null.
         if (dto.PhoneNumber != null &&
             string.IsNullOrWhiteSpace(dto.PhoneNumber))
         {
             dto.PhoneNumber = null;
         }
-
-        // -----------------------------------------------------
-        // UPDATE
-        // -----------------------------------------------------
 
         var updatedUser = await _service.UpdateProfileAsync(
             id!,
@@ -167,34 +254,58 @@ public class UsersController : ControllerBase
         );
 
         if (updatedUser == null)
-            return NotFound("User not found or email already exists.");
+            return NotFound(
+                "User not found or email already exists.");
 
         return Ok(MapUserResponse(updatedUser));
     }
 
     // ---------------------------------------------------------
-    // DELETE USER (Admin only)
+    // DELETE USER
+    // Admin only
+    //
+    // UserService also deletes:
+    // - user's cart
+    // - user's wishlist
     // ---------------------------------------------------------
+
     [Authorize]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string? id)
     {
         if (!IsAdmin())
-            return Unauthorized("Admin only.");
+            return Forbid();
 
         if (!IsValidObjectId(id))
             return BadRequest("Invalid user id.");
 
+        // Prevent an administrator from deleting their own account.
+        var currentUserId = GetUserId();
+
+        if (IsValidObjectId(currentUserId) &&
+            string.Equals(currentUserId, id, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("You cannot delete your own account.");
+        }
+
         var success = await _service.DeleteAsync(id!);
+
         if (!success)
             return NotFound("User not found.");
 
-        return Ok(new { message = "User deleted successfully" });
+        return Ok(new
+        {
+            message = "User, cart and wishlist deleted successfully."
+        });
     }
 
     // ---------------------------------------------------------
     // USER RESPONSE MAPPING
+    //
+    // IMPORTANT:
+    // PasswordHash is intentionally NOT returned.
     // ---------------------------------------------------------
+
     private static object MapUserResponse(User user)
     {
         return new
