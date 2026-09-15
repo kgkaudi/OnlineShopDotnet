@@ -89,6 +89,25 @@ public class UserRepository : IUserRepository
         return result.ModifiedCount == 1;
     }
 
+    public async Task<bool> UpdateAsync(User user)
+    {
+        if (user == null)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(user.Id))
+            return false;
+
+        if (!ObjectId.TryParse(user.Id, out _))
+            return false;
+
+        var result = await _users.ReplaceOneAsync(
+            u => u.Id == user.Id,
+            user
+        );
+
+        return result.ModifiedCount == 1;
+    }
+
     public async Task<bool> DeleteAsync(string id)
     {
         if (string.IsNullOrWhiteSpace(id))

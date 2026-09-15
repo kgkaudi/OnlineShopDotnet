@@ -48,6 +48,12 @@ export default function Header() {
             Wishlist
           </Link>
 
+          {hydrated && isLoggedIn && (
+            <Link href="/profile" className="text-black hover:underline">
+              Profile
+            </Link>
+          )}
+
           {hydrated && (
             <>
               {!isLoggedIn && (
@@ -104,6 +110,12 @@ export default function Header() {
           <Link href="/wishlist" onClick={() => setMenuOpen(false)} className="block">
             Wishlist
           </Link>
+
+          {hydrated && isLoggedIn && (
+            <Link href="/profile" onClick={() => setMenuOpen(false)} className="block">
+              Profile
+            </Link>
+          )}
 
           {hydrated && (
             <>

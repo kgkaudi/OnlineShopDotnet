@@ -24,6 +24,13 @@ export interface CartResponse {
   items: CartItem[];
 }
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  fullName: string;
+  roles: string[];
+}
+
 export interface WishlistItem {
   productId: string;
   productName: string;
@@ -71,6 +78,24 @@ export function getClientToken(): string | null {
   return localStorage.getItem("token");
 }
 
+export function getClientUserId(): string | null {
+  const token = getClientToken();
+  if (!token) return null;
+
+  try {
+    const payloadPart = token.split(".")[1];
+    if (!payloadPart) return null;
+
+    const base64 = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(padded));
+
+    return typeof payload.sub === "string" ? payload.sub.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Logout helper
  */
@@ -90,6 +115,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  // PROFILE
+  getUserProfile: (id: string) =>
+    request<UserProfile>(`/users/${id}`, {}, getClientToken() || undefined),
+
+  updateUserProfile: (id: string, data: { fullName: string; email: string }) =>
+    request<UserProfile>(
+      `/users/${id}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      },
+      getClientToken() || undefined
+    ),
 
   // PRODUCTS
   getProducts: () => request<Product[]>("/products"),

@@ -132,6 +132,53 @@ public class UserService : IUserService
     }
 
     // ---------------------------------------------------------
+    // UPDATE PROFILE
+    // ---------------------------------------------------------
+
+    public async Task<User?> UpdateProfileAsync(
+        string id,
+        string fullName,
+        string email)
+    {
+        if (!IsValidObjectId(id))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(fullName))
+            return null;
+
+        if (string.IsNullOrWhiteSpace(email))
+            return null;
+
+        fullName = fullName.Trim();
+        email = email.Trim();
+
+        var existing = await _repo.GetByIdAsync(id);
+
+        if (existing == null)
+            return null;
+
+        // Prevent duplicate email addresses
+        var all = await _repo.GetAllAsync();
+
+        var emailAlreadyExists = all.Any(u =>
+            u.Id != id &&
+            u.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+
+        if (emailAlreadyExists)
+            return null;
+
+        existing.FullName = fullName;
+        existing.Email = email;
+
+        var updated = await _repo.UpdateAsync(existing);
+
+        if (!updated)
+            return null;
+
+        return existing;
+    }
+
+    // ---------------------------------------------------------
     // DELETE
     // ---------------------------------------------------------
 
