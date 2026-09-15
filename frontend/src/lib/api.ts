@@ -90,6 +90,21 @@ export interface WishlistItem {
   addedAt: string;
 }
 
+export interface OrderItem {
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface Order {
+  id: string;
+  userId: string;
+  items: OrderItem[];
+  total: number;
+  createdAt: string;
+  status: string;
+}
+
 /**
  * Core request wrapper
  */
@@ -115,9 +130,7 @@ async function request<T>(
   if (!response.ok) {
     const message = await response.text();
 
-    throw new Error(
-      message || `Request failed with status ${response.status}`,
-    );
+    throw new Error(message || `Request failed with status ${response.status}`);
   }
 
   /*
@@ -169,14 +182,9 @@ function getTokenPayload(): Record<string, unknown> | null {
       return null;
     }
 
-    const base64 = payloadPart
-      .replace(/-/g, "+")
-      .replace(/_/g, "/");
+    const base64 = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
 
-    const padded = base64.padEnd(
-      Math.ceil(base64.length / 4) * 4,
-      "=",
-    );
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
 
     const payload = JSON.parse(atob(padded));
 
@@ -242,9 +250,7 @@ export function getClientRoles(): string[] {
   const roleClaim =
     payload.role ??
     payload.roles ??
-    payload[
-      "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
-    ];
+    payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
 
   if (typeof roleClaim === "string") {
     return [roleClaim.trim()].filter(Boolean);
@@ -252,10 +258,7 @@ export function getClientRoles(): string[] {
 
   if (Array.isArray(roleClaim)) {
     return roleClaim
-      .filter(
-        (role): role is string =>
-          typeof role === "string",
-      )
+      .filter((role): role is string => typeof role === "string")
       .map((role) => role.trim())
       .filter(Boolean);
   }
@@ -270,9 +273,7 @@ export function getClientRoles(): string[] {
  * The API must still enforce authorization.
  */
 export function clientIsAdmin(): boolean {
-  return getClientRoles().some(
-    (role) => role.toLowerCase() === "admin",
-  );
+  return getClientRoles().some((role) => role.toLowerCase() === "admin");
 }
 
 /**
@@ -292,17 +293,11 @@ export const api = {
   // AUTH
   // =========================================================
 
-  login: (data: {
-    email: string;
-    password: string;
-  }) =>
-    request<{ token: string; expires?: string }>(
-      "/auth/login",
-      {
-        method: "POST",
-        body: JSON.stringify(data),
-      },
-    ),
+  login: (data: { email: string; password: string }) =>
+    request<{ token: string; expires?: string }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   // =========================================================
   // PROFILE
@@ -338,13 +333,10 @@ export const api = {
   // PRODUCTS - PUBLIC
   // =========================================================
 
-  getProducts: () =>
-    request<Product[]>("/products"),
+  getProducts: () => request<Product[]>("/products"),
 
   getProduct: (id: string) =>
-    request<Product>(
-      `/products/${encodeURIComponent(id)}`,
-    ),
+    request<Product>(`/products/${encodeURIComponent(id)}`),
 
   // =========================================================
   // PRODUCTS - ADMIN
@@ -360,10 +352,7 @@ export const api = {
       getClientToken() || undefined,
     ),
 
-  updateProduct: (
-    id: string,
-    data: UpdateProductRequest,
-  ) =>
+  updateProduct: (id: string, data: UpdateProductRequest) =>
     request<Product>(
       `/products/${encodeURIComponent(id)}`,
       {
@@ -386,29 +375,19 @@ export const api = {
   // CATEGORIES
   // =========================================================
 
-  getCategories: () =>
-    request<Category[]>("/categories"),
+  getCategories: () => request<Category[]>("/categories"),
 
   getCategory: (id: string) =>
-    request<Category>(
-      `/categories/${encodeURIComponent(id)}`,
-    ),
+    request<Category>(`/categories/${encodeURIComponent(id)}`),
 
   // =========================================================
   // CART
   // =========================================================
 
   getCart: () =>
-    request<CartResponse>(
-      "/cart",
-      {},
-      getClientToken() || undefined,
-    ),
+    request<CartResponse>("/cart", {}, getClientToken() || undefined),
 
-  addToCart: (
-    productId: string,
-    quantity = 1,
-  ) => {
+  addToCart: (productId: string, quantity = 1) => {
     const params = new URLSearchParams({
       productId,
       quantity: String(quantity),
@@ -423,10 +402,7 @@ export const api = {
     );
   },
 
-  updateCartItem: (
-    productId: string,
-    quantity: number,
-  ) => {
+  updateCartItem: (productId: string, quantity: number) => {
     const params = new URLSearchParams({
       productId,
       quantity: String(quantity),
@@ -469,11 +445,7 @@ export const api = {
   // =========================================================
 
   getWishlist: () =>
-    request<WishlistItem[]>(
-      "/wishlist",
-      {},
-      getClientToken() || undefined,
-    ),
+    request<WishlistItem[]>("/wishlist", {}, getClientToken() || undefined),
 
   addToWishlist: (productId: string) =>
     request<{ message: string }>(
@@ -499,16 +471,23 @@ export const api = {
       getClientToken() || undefined,
     ),
 
+  // ========================================================= 
+  // ORDERS 
+  // ========================================================= 
+  
+  getOrders: () => 
+    request<Order[]>( 
+      "/orders", 
+      {}, 
+      getClientToken() || undefined, 
+    ),
+
   // =========================================================
   // ADMIN - USERS
   // =========================================================
 
   getUsers: () =>
-    request<AdminUser[]>(
-      "/users",
-      {},
-      getClientToken() || undefined,
-    ),
+    request<AdminUser[]>("/users", {}, getClientToken() || undefined),
 
   getUserById: (id: string) =>
     request<AdminUser>(
@@ -517,10 +496,7 @@ export const api = {
       getClientToken() || undefined,
     ),
 
-  updateUserRoles: (
-    id: string,
-    roles: string[],
-  ) =>
+  updateUserRoles: (id: string, roles: string[]) =>
     request<AdminUser>(
       `/users/${encodeURIComponent(id)}/roles`,
       {
@@ -532,10 +508,7 @@ export const api = {
       getClientToken() || undefined,
     ),
 
-  addUserRole: (
-    id: string,
-    role: string,
-  ) =>
+  addUserRole: (id: string, role: string) =>
     request<AddRoleResponse>(
       `/users/${encodeURIComponent(id)}/roles`,
       {
