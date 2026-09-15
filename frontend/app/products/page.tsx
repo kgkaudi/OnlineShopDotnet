@@ -8,12 +8,40 @@ import { useSnackbar } from "@/src/context/SnackbarContext";
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addingProductId, setAddingProductId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const { showSnackbar } = useSnackbar();
+
+  async function addToCart(productId: string) {
+    try {
+      setAddingProductId(productId);
+
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        showSnackbar("You must be logged in.", "error");
+        return;
+      }
+
+      await api.addToCart(productId, 1);
+      showSnackbar("Added to cart 🛒", "success");
+    } catch (err) {
+      console.error(err);
+      showSnackbar(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while adding to cart.",
+        "error"
+      );
+    } finally {
+      setAddingProductId(null);
+    }
+  }
 
   async function addToWishlist(productId: string) {
     try {
       const token = localStorage.getItem("token");
+
       if (!token) {
         showSnackbar("You must be logged in.", "error");
         return;
@@ -71,11 +99,34 @@ export default function ProductsPage() {
               className="border rounded p-4 bg-white shadow-sm hover:shadow-md transition"
             >
               <h2 className="font-semibold text-lg">{product.name}</h2>
-              <p className="text-gray-600 mt-1">{product.description}</p>
-              <p className="text-black font-bold mt-3">{product.price} €</p>
 
-              <button className="mt-4 w-full bg-black text-white py-3 rounded text-sm sm:text-base">
-                Add to Cart
+              <p className="text-gray-600 mt-1">
+                {product.description || "No description available."}
+              </p>
+
+              <p className="text-black font-bold mt-3">
+                €{Number(product.price).toFixed(2)}
+              </p>
+
+              {typeof product.stockQuantity === "number" && (
+                <p className="text-sm text-gray-500 mt-1">
+                  {product.stockQuantity > 0
+                    ? `${product.stockQuantity} in stock`
+                    : "Out of stock"}
+                </p>
+              )}
+
+              <button
+                onClick={() => addToCart(product.id)}
+                disabled={
+                  addingProductId === product.id ||
+                  product.stockQuantity === 0
+                }
+                className="mt-4 w-full bg-black text-white py-3 rounded text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {addingProductId === product.id
+                  ? "Adding..."
+                  : "Add to Cart"}
               </button>
 
               <button

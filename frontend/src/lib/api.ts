@@ -6,16 +6,22 @@ export const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 export interface Product {
   id: string;
   name: string;
-  description: string;
+  description?: string | null;
   price: number;
+  stockQuantity?: number;
+  categoryId?: string | null;
 }
 
 export interface CartItem {
   id: string;
   productId: string;
-  productName: string;
-  price: number;
   quantity: number;
+}
+
+export interface CartResponse {
+  id: string;
+  userId: string;
+  items: CartItem[];
 }
 
 /**
@@ -31,7 +37,6 @@ async function request<T>(
     ...(options.headers as Record<string, string> | undefined),
   };
 
-  // Attach token if provided
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
@@ -83,13 +88,56 @@ export const api = {
   getProduct: (id: string) => request<Product>(`/products/${id}`),
 
   // CART
-  getCart: () => request<CartItem[]>("/cart", {}, getClientToken() || undefined),
-  addToCart: (productId: string) =>
-    request<CartItem>(
-      "/cart",
+  getCart: () =>
+    request<CartResponse>("/cart", {}, getClientToken() || undefined),
+
+  addToCart: (productId: string, quantity = 1) => {
+    const params = new URLSearchParams({
+      productId,
+      quantity: String(quantity),
+    });
+
+    return request<CartResponse>(
+      `/cart/add?${params.toString()}`,
       {
         method: "POST",
-        body: JSON.stringify({ productId }),
+      },
+      getClientToken() || undefined
+    );
+  },
+
+  updateCartItem: (productId: string, quantity: number) => {
+    const params = new URLSearchParams({
+      productId,
+      quantity: String(quantity),
+    });
+
+    return request<CartResponse>(
+      `/cart/update?${params.toString()}`,
+      {
+        method: "PUT",
+      },
+      getClientToken() || undefined
+    );
+  },
+
+  removeFromCart: (productId: string) => {
+    const params = new URLSearchParams({ productId });
+
+    return request<CartResponse>(
+      `/cart/remove?${params.toString()}`,
+      {
+        method: "DELETE",
+      },
+      getClientToken() || undefined
+    );
+  },
+
+  clearCart: () =>
+    request<{ message: string }>(
+      "/cart/clear",
+      {
+        method: "DELETE",
       },
       getClientToken() || undefined
     ),
