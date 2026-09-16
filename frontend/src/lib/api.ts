@@ -566,6 +566,28 @@ export const api = {
   },
 
   // =========================================================
+  // REVIEWS ADMIN
+  // =========================================================
+  getAllReviews: () =>
+    request<
+      {
+        id: string;
+        productId: string;
+        userId: string;
+        rating: number;
+        comment: string;
+        createdAt: string;
+      }[]
+    >("/reviews", {}, getClientToken() || undefined),
+
+  deleteReview: (id: string) =>
+    request<{ message: string }>(
+      `/reviews/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+      getClientToken() || undefined,
+    ),
+
+  // =========================================================
   // ADMIN - USERS
   // =========================================================
 

@@ -100,6 +100,13 @@ export default function Header() {
                   >
                     Categories Admin
                   </Link>
+
+                  <Link
+                    href="/admin/reviews"
+                    className="font-semibold text-black hover:underline"
+                  >
+                    Reviews Admin
+                  </Link>
                 </>
               )}
             </>
@@ -216,9 +223,18 @@ export default function Header() {
 
                     <Link
                       href="/admin/categories"
-                      className="font-semibold text-black hover:underline"
+                      onClick={closeMenu}
+                      className="block font-semibold"
                     >
                       Categories Admin
+                    </Link>
+
+                    <Link
+                      href="/admin/reviews"
+                      onClick={closeMenu}
+                      className="block font-semibold"
+                    >
+                      Reviews Admin
                     </Link>
                   </div>
                 </div>

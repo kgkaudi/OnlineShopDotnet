@@ -23,9 +23,19 @@ public class ReviewRepository : IReviewRepository
     }
 
     // ---------------------------------------------------------
+    // GET ALL (Admin)
+    // ---------------------------------------------------------
+    public async Task<List<Review>> GetAllAsync()
+    {
+        return await _reviews
+            .Find(_ => true)
+            .SortByDescending(r => r.CreatedAt)
+            .ToListAsync();
+    }
+
+    // ---------------------------------------------------------
     // GET BY PRODUCT
     // ---------------------------------------------------------
-
     public async Task<List<Review>> GetByProductIdAsync(string productId)
     {
         if (string.IsNullOrWhiteSpace(productId))
@@ -40,7 +50,6 @@ public class ReviewRepository : IReviewRepository
     // ---------------------------------------------------------
     // GET BY ID
     // ---------------------------------------------------------
-
     public async Task<Review?> GetByIdAsync(string id)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -55,7 +64,6 @@ public class ReviewRepository : IReviewRepository
     // ---------------------------------------------------------
     // CREATE
     // ---------------------------------------------------------
-
     public async Task CreateAsync(Review review)
     {
         if (review == null)
@@ -88,7 +96,6 @@ public class ReviewRepository : IReviewRepository
     // ---------------------------------------------------------
     // UPDATE
     // ---------------------------------------------------------
-
     public async Task<bool> UpdateAsync(Review review)
     {
         if (review == null)
@@ -127,7 +134,6 @@ public class ReviewRepository : IReviewRepository
     // ---------------------------------------------------------
     // DELETE
     // ---------------------------------------------------------
-
     public async Task<bool> DeleteAsync(string id)
     {
         if (string.IsNullOrWhiteSpace(id))

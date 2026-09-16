@@ -28,6 +28,17 @@ public class ReviewsController : ControllerBase
     }
 
     // ---------------------------------------------------------
+    // GET all reviews (Admin only)
+    // ---------------------------------------------------------
+    [Authorize(Roles = "Admin")]
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var reviews = await _service.GetAllAsync();
+        return Ok(reviews);
+    }
+
+    // ---------------------------------------------------------
     // GET reviews for a product (Public)
     // ---------------------------------------------------------
     [HttpGet("{productId}")]
@@ -74,7 +85,7 @@ public class ReviewsController : ControllerBase
         if (created == null)
             return BadRequest("Invalid review data.");
 
-        return CreatedAtAction(nameof(GetByProduct), new { productId = review.ProductId }, created);        
+        return CreatedAtAction(nameof(GetByProduct), new { productId = review.ProductId }, created);
     }
 
     // ---------------------------------------------------------

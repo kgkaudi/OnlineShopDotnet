@@ -128,6 +128,14 @@ export default function MobileMenu() {
                       >
                         Categories Admin
                       </Link>
+
+                      <Link
+                        href="/admin/reviews"
+                        onClick={closeMenu}
+                        className="block text-lg font-semibold"
+                      >
+                        Reviews Admin
+                      </Link>
                     </div>
                   </div>
                 </>

@@ -4,6 +4,7 @@ namespace OnlineShop.Api.Repositories;
 
 public interface IReviewRepository
 {
+    Task<List<Review>> GetAllAsync();
     Task<List<Review>> GetByProductIdAsync(string productId);
     Task<Review?> GetByIdAsync(string id);
     Task CreateAsync(Review review);

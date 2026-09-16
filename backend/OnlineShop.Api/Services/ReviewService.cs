@@ -23,6 +23,15 @@ public class ReviewService : IReviewService
     }
 
     // ---------------------------------------------------------
+    // GET ALL (Admin)
+    // ---------------------------------------------------------
+
+    public async Task<List<Review>> GetAllAsync()
+    {
+        return await _repo.GetAllAsync();
+    }
+
+    // ---------------------------------------------------------
     // GET BY PRODUCT
     // ---------------------------------------------------------
 
@@ -60,7 +69,7 @@ public class ReviewService : IReviewService
         // Trim comment
         review.Comment = review.Comment.Trim();
 
-        // Generate ID if missing (model already does this, but safe to keep)
+        // Generate ID if missing
         if (!IsValidObjectId(review.Id))
             review.Id = ObjectId.GenerateNewId().ToString();
 
