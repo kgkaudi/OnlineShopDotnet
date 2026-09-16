@@ -19,7 +19,7 @@ public class OrderRepository : IOrderRepository
         var client = new MongoClient(connectionString);
         var db = client.GetDatabase(dbName);
 
-        _orders = db.GetCollection<Order>("Orders");
+        _orders = db.GetCollection<Order>("Order");
     }
     
     public async Task CreateAsync(Order order)

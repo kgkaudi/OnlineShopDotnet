@@ -8,12 +8,15 @@ public abstract class RepositoryTestBase : IClassFixture<MongoTestFixture>
 
         // Clean collections before each test.
         // NOTE: these must match the exact names passed to GetCollection<T>(...)
-        // in each repository (all plural). There is no separate "Inventory"
-        // collection — InventoryRepository reads/writes "Products" directly.
+        // in each repository — verified directly against the repository source,
+        // not assumed. Category and Order are singular; everything else here
+        // is plural. There is no separate "Inventory" collection —
+        // InventoryRepository reads/writes "Products" directly.
         Fixture.Database.DropCollection("Carts");
-        Fixture.Database.DropCollection("Categories");
+        Fixture.Database.DropCollection("Category");
         Fixture.Database.DropCollection("Coupons");
-        Fixture.Database.DropCollection("Orders");
+        Fixture.Database.DropCollection("InvalidTokens");
+        Fixture.Database.DropCollection("Order");
         Fixture.Database.DropCollection("Products");
         Fixture.Database.DropCollection("Reviews");
         Fixture.Database.DropCollection("Users");

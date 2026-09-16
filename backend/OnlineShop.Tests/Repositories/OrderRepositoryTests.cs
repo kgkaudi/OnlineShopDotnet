@@ -19,9 +19,9 @@ public class OrderRepositoryTests : RepositoryTestBase
         );
 
         _repo = new OrderRepository(config);
-        _orders = Fixture.Database.GetCollection<Order>("Orders");
+        _orders = Fixture.Database.GetCollection<Order>("Order");
 
-        Fixture.Database.DropCollection("Orders");
+        Fixture.Database.DropCollection("Order");
     }
 
     // ---------------------------------------------------------
