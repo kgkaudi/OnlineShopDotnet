@@ -134,16 +134,30 @@ export default function ProductsPage() {
           items.map(async (product) => {
             try {
               const reviews = await api.getReviews(product.id);
+
+              const validReviews = reviews.filter(
+                (r) => typeof r.rating === "number" && !Number.isNaN(r.rating),
+              );
+
               const avg =
-                reviews.length > 0
+                validReviews.length > 0
                   ? (
-                      reviews.reduce((sum, r) => sum + r.rating, 0) /
-                      reviews.length
+                      validReviews.reduce((sum, r) => sum + r.rating, 0) /
+                      validReviews.length
                     ).toFixed(1)
                   : null;
-              return { ...product, averageRating: avg };
+
+              return {
+                ...product,
+                averageRating: avg,
+                reviewCount: validReviews.length,
+              };
             } catch {
-              return { ...product, averageRating: null };
+              return {
+                ...product,
+                averageRating: null,
+                reviewCount: 0,
+              };
             }
           }),
         );
@@ -209,8 +223,12 @@ export default function ProductsPage() {
                 </p>
 
                 {product.averageRating && (
-                  <p className="text-yellow-500 font-semibold mt-1">
+                  <p className="mt-1 text-lg text-yellow-500 font-semibold">
                     ⭐ {product.averageRating}/5
+                    <span className="text-gray-600 text-sm ml-2">
+                      ({product.reviewCount}{" "}
+                      {product.reviewCount === 1 ? "review" : "reviews"})
+                    </span>
                   </p>
                 )}
 

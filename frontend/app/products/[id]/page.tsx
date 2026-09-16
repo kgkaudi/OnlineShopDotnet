@@ -337,6 +337,10 @@ export default function ProductDetailsPage() {
               {averageRating && (
                 <p className="mt-1 text-lg text-yellow-500 font-semibold">
                   ⭐ {averageRating}/5
+                  <span className="text-gray-600 text-sm ml-2">
+                    ({reviews.length}{" "}
+                    {reviews.length === 1 ? "review" : "reviews"})
+                  </span>
                 </p>
               )}
             </div>
