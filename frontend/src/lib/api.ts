@@ -482,6 +482,41 @@ export const api = {
       getClientToken() || undefined, 
     ),
 
+  // ========================================================= 
+  // CATEGORIES 
+  // ========================================================= 
+  createCategory: (data: { name: string }) =>
+    request<Category>(
+      "/categories",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      getClientToken() || undefined,
+    ),
+
+  updateCategory: (
+    id: string,
+    data: { name: string },
+  ) =>
+    request<void>(
+      `/categories/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      },
+      getClientToken() || undefined,
+    ),
+
+  deleteCategory: (id: string) =>
+    request<void>(
+      `/categories/${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+      },
+      getClientToken() || undefined,
+    ),
+
   // =========================================================
   // ADMIN - USERS
   // =========================================================

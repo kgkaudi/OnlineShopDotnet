@@ -67,43 +67,23 @@ export default function MobileMenu() {
             ×
           </button>
 
-          <Link
-            href="/"
-            onClick={closeMenu}
-            className="block text-lg"
-          >
+          <Link href="/" onClick={closeMenu} className="block text-lg">
             Home
           </Link>
 
-          <Link
-            href="/products"
-            onClick={closeMenu}
-            className="block text-lg"
-          >
+          <Link href="/products" onClick={closeMenu} className="block text-lg">
             Products
           </Link>
 
-          <Link
-            href="/cart"
-            onClick={closeMenu}
-            className="block text-lg"
-          >
+          <Link href="/cart" onClick={closeMenu} className="block text-lg">
             Cart
           </Link>
 
-          <Link
-            href="/wishlist"
-            onClick={closeMenu}
-            className="block text-lg"
-          >
+          <Link href="/wishlist" onClick={closeMenu} className="block text-lg">
             Wishlist
           </Link>
 
-          <Link
-            href="/orders"
-            onClick={closeMenu}
-            className="block text-lg"
-          >
+          <Link href="/orders" onClick={closeMenu} className="block text-lg">
             Orders
           </Link>
 
@@ -139,6 +119,14 @@ export default function MobileMenu() {
                         className="block text-lg font-semibold"
                       >
                         Products Admin
+                      </Link>
+
+                      <Link
+                        href="/admin/categories"
+                        onClick={closeMenu}
+                        className="block text-lg font-semibold"
+                      >
+                        Categories Admin
                       </Link>
                     </div>
                   </div>

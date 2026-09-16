@@ -56,40 +56,25 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden items-center gap-6 text-sm md:flex">
-          <Link
-            href="/products"
-            className="text-black hover:underline"
-          >
+          <Link href="/products" className="text-black hover:underline">
             Products
           </Link>
 
-          <Link
-            href="/cart"
-            className="text-black hover:underline"
-          >
+          <Link href="/cart" className="text-black hover:underline">
             Cart
           </Link>
 
-          <Link
-            href="/wishlist"
-            className="text-black hover:underline"
-          >
+          <Link href="/wishlist" className="text-black hover:underline">
             Wishlist
           </Link>
 
           {hydrated && isLoggedIn && (
             <>
-              <Link
-                href="/orders"
-                className="text-black hover:underline"
-              >
+              <Link href="/orders" className="text-black hover:underline">
                 Orders
               </Link>
 
-              <Link
-                href="/profile"
-                className="text-black hover:underline"
-              >
+              <Link href="/profile" className="text-black hover:underline">
                 Profile
               </Link>
 
@@ -108,6 +93,13 @@ export default function Header() {
                   >
                     Products Admin
                   </Link>
+
+                  <Link
+                    href="/admin/categories"
+                    className="font-semibold text-black hover:underline"
+                  >
+                    Categories Admin
+                  </Link>
                 </>
               )}
             </>
@@ -117,10 +109,7 @@ export default function Header() {
           {hydrated && (
             <>
               {!isLoggedIn && (
-                <Link
-                  href="/auth/login"
-                  className="text-black hover:underline"
-                >
+                <Link href="/auth/login" className="text-black hover:underline">
                   Login
                 </Link>
               )}
@@ -176,53 +165,29 @@ export default function Header() {
             ×
           </button>
 
-          <Link
-            href="/"
-            onClick={closeMenu}
-            className="block"
-          >
+          <Link href="/" onClick={closeMenu} className="block">
             Home
           </Link>
 
-          <Link
-            href="/products"
-            onClick={closeMenu}
-            className="block"
-          >
+          <Link href="/products" onClick={closeMenu} className="block">
             Products
           </Link>
 
-          <Link
-            href="/cart"
-            onClick={closeMenu}
-            className="block"
-          >
+          <Link href="/cart" onClick={closeMenu} className="block">
             Cart
           </Link>
 
-          <Link
-            href="/wishlist"
-            onClick={closeMenu}
-            className="block"
-          >
+          <Link href="/wishlist" onClick={closeMenu} className="block">
             Wishlist
           </Link>
 
           {hydrated && isLoggedIn && (
             <>
-              <Link
-                href="/orders"
-                onClick={closeMenu}
-                className="block"
-              >
+              <Link href="/orders" onClick={closeMenu} className="block">
                 Orders
               </Link>
 
-              <Link
-                href="/profile"
-                onClick={closeMenu}
-                className="block"
-              >
+              <Link href="/profile" onClick={closeMenu} className="block">
                 Profile
               </Link>
 
@@ -248,6 +213,13 @@ export default function Header() {
                     >
                       Products Admin
                     </Link>
+
+                    <Link
+                      href="/admin/categories"
+                      className="font-semibold text-black hover:underline"
+                    >
+                      Categories Admin
+                    </Link>
                   </div>
                 </div>
               )}
@@ -258,11 +230,7 @@ export default function Header() {
           {hydrated && (
             <div className="mt-2 border-t pt-4">
               {!isLoggedIn && (
-                <Link
-                  href="/auth/login"
-                  onClick={closeMenu}
-                  className="block"
-                >
+                <Link href="/auth/login" onClick={closeMenu} className="block">
                   Login
                 </Link>
               )}
