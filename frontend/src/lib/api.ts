@@ -286,6 +286,19 @@ export function logout(): void {
 }
 
 /**
+ * Helper: generate MongoDB ObjectId
+ */
+function generateObjectId(): string {
+  const timestamp = Math.floor(Date.now() / 1000).toString(16);
+  return (
+    timestamp +
+    "xxxxxxxxxxxxxxxx"
+      .replace(/[x]/g, () => ((Math.random() * 16) | 0).toString(16))
+      .toLowerCase()
+  );
+}
+
+/**
  * API endpoints
  */
 export const api = {
@@ -471,20 +484,16 @@ export const api = {
       getClientToken() || undefined,
     ),
 
-  // ========================================================= 
-  // ORDERS 
-  // ========================================================= 
-  
-  getOrders: () => 
-    request<Order[]>( 
-      "/orders/me", 
-      {}, 
-      getClientToken() || undefined, 
-    ),
+  // =========================================================
+  // ORDERS
+  // =========================================================
 
-  // ========================================================= 
-  // CATEGORIES 
-  // ========================================================= 
+  getOrders: () =>
+    request<Order[]>("/orders/me", {}, getClientToken() || undefined),
+
+  // =========================================================
+  // CATEGORIES
+  // =========================================================
   createCategory: (data: { name: string }) =>
     request<Category>(
       "/categories",
@@ -495,10 +504,7 @@ export const api = {
       getClientToken() || undefined,
     ),
 
-  updateCategory: (
-    id: string,
-    data: { name: string },
-  ) =>
+  updateCategory: (id: string, data: { name: string }) =>
     request<void>(
       `/categories/${encodeURIComponent(id)}`,
       {
@@ -516,6 +522,48 @@ export const api = {
       },
       getClientToken() || undefined,
     ),
+
+  // =========================================================
+  // REVIEWS
+  // =========================================================
+
+  getReviews: (productId: string) =>
+    request<
+      {
+        id: string;
+        productId: string;
+        userId: string;
+        rating: number;
+        comment: string;
+        createdAt: string;
+      }[]
+    >(`/reviews/${encodeURIComponent(productId)}`, {}),
+
+  addReview: (productId: string, rating: number, comment: string) => {
+    const token = getClientToken();
+    const userId = getClientUserId();
+
+    if (!userId) {
+      throw new Error("User ID missing — you must be logged in.");
+    }
+
+    const id = generateObjectId();
+
+    return request(
+      `/reviews`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          id,
+          productId,
+          userId,
+          rating,
+          comment,
+        }),
+      },
+      token || undefined,
+    );
+  },
 
   // =========================================================
   // ADMIN - USERS

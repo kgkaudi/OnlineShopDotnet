@@ -22,26 +22,6 @@ public class ReviewService : IReviewService
         return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
     }
 
-    private static bool IsValidReview(Review review)
-    {
-        if (review == null)
-            return false;
-
-        if (!IsValidObjectId(review.ProductId))
-            return false;
-
-        if (!IsValidObjectId(review.UserId))
-            return false;
-
-        if (review.Rating <= 0)
-            return false;
-
-        if (string.IsNullOrWhiteSpace(review.Comment))
-            return false;
-
-        return true;
-    }
-
     // ---------------------------------------------------------
     // GET BY PRODUCT
     // ---------------------------------------------------------
@@ -60,37 +40,30 @@ public class ReviewService : IReviewService
 
     public async Task<Review?> CreateAsync(Review? review)
     {
-        // ---------------------------------------------------------
-        // NULL REVIEW → return null (tests expect this)
-        // ---------------------------------------------------------
         if (review == null)
             return null;
 
-        // ---------------------------------------------------------
-        // VALIDATION (tests expect ArgumentException for invalid data)
-        // ---------------------------------------------------------
+        // ProductId must be valid
         if (!IsValidObjectId(review.ProductId))
             throw new ArgumentException("Invalid review data.");
 
-        if (!IsValidObjectId(review.UserId))
-            throw new ArgumentException("Invalid review data.");
+        // UserId is already assigned by the controller → no need to validate here
 
+        // Comment required
         if (string.IsNullOrWhiteSpace(review.Comment))
             throw new ArgumentException("Invalid review data.");
 
+        // Rating must be 1–5
         if (review.Rating < 1 || review.Rating > 5)
             throw new ArgumentException("Invalid review data.");
 
         // Trim comment
         review.Comment = review.Comment.Trim();
 
-        // Generate ID if missing
+        // Generate ID if missing (model already does this, but safe to keep)
         if (!IsValidObjectId(review.Id))
             review.Id = ObjectId.GenerateNewId().ToString();
 
-        // ---------------------------------------------------------
-        // SAVE
-        // ---------------------------------------------------------
         await _repo.CreateAsync(review);
         return review;
     }

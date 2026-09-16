@@ -54,6 +54,9 @@ public class ReviewsController : ControllerBase
         if (review == null)
             return BadRequest("Invalid review data.");
 
+        review.UserId = userId!;
+        review.CreatedAt = DateTime.UtcNow;
+
         if (!IsValidObjectId(review.ProductId))
             return BadRequest("Invalid product id.");
 
@@ -64,17 +67,14 @@ public class ReviewsController : ControllerBase
         if (review.Rating < 1 || review.Rating > 5)
             return BadRequest("Rating must be between 1 and 5.");
 
-        review.UserId = userId!;
         review.Comment = comment;
-        review.CreatedAt = DateTime.UtcNow;
 
         var created = await _service.CreateAsync(review);
 
-        // Service returns null → tests expect BadRequest
         if (created == null)
             return BadRequest("Invalid review data.");
 
-        return CreatedAtAction(nameof(GetByProduct), new { productId = review.ProductId }, created);
+        return CreatedAtAction(nameof(GetByProduct), new { productId = review.ProductId }, created);        
     }
 
     // ---------------------------------------------------------

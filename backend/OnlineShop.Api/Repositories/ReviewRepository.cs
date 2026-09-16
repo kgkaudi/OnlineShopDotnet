@@ -62,7 +62,7 @@ public class ReviewRepository : IReviewRepository
             throw new ArgumentNullException(nameof(review));
 
         if (string.IsNullOrWhiteSpace(review.Id))
-            review.Id = ObjectId.GenerateNewId().ToString();
+            throw new ArgumentNullException(nameof(review.Id));
 
         if (!ObjectId.TryParse(review.Id, out _))
             throw new ArgumentNullException(nameof(review.Id));

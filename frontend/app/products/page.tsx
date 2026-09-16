@@ -11,7 +11,9 @@ export default function ProductsPage() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [addingProductId, setAddingProductId] = useState<string | null>(null);
-  const [wishlistProductId, setWishlistProductId] = useState<string | null>(null);
+  const [wishlistProductId, setWishlistProductId] = useState<string | null>(
+    null,
+  );
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const { showSnackbar } = useSnackbar();
@@ -23,7 +25,7 @@ export default function ProductsPage() {
   function changeQuantity(
     productId: string,
     quantity: number,
-    stockQuantity?: number
+    stockQuantity?: number,
   ) {
     let nextQuantity = Math.max(1, quantity);
 
@@ -53,7 +55,7 @@ export default function ProductsPage() {
       ) {
         showSnackbar(
           `Only ${product.stockQuantity} item(s) are available.`,
-          "error"
+          "error",
         );
         return;
       }
@@ -71,7 +73,7 @@ export default function ProductsPage() {
 
       showSnackbar(
         `${quantity} ${quantity === 1 ? "item" : "items"} added to cart 🛒`,
-        "success"
+        "success",
       );
     } catch (err) {
       console.error(err);
@@ -79,7 +81,7 @@ export default function ProductsPage() {
         err instanceof Error
           ? err.message
           : "Something went wrong while adding to cart.",
-        "error"
+        "error",
       );
     } finally {
       setAddingProductId(null);
@@ -113,8 +115,10 @@ export default function ProductsPage() {
     } catch (err) {
       console.error(err);
       showSnackbar(
-        err instanceof Error ? err.message : "Something went wrong while updating your wishlist.",
-        "error"
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while updating your wishlist.",
+        "error",
       );
     } finally {
       setWishlistProductId(null);
@@ -124,14 +128,32 @@ export default function ProductsPage() {
   useEffect(() => {
     api
       .getProducts()
-      .then((items) => {
-        setProducts(items);
+      .then(async (items) => {
+        // Fetch average rating for each product
+        const enriched = await Promise.all(
+          items.map(async (product) => {
+            try {
+              const reviews = await api.getReviews(product.id);
+              const avg =
+                reviews.length > 0
+                  ? (
+                      reviews.reduce((sum, r) => sum + r.rating, 0) /
+                      reviews.length
+                    ).toFixed(1)
+                  : null;
+              return { ...product, averageRating: avg };
+            } catch {
+              return { ...product, averageRating: null };
+            }
+          }),
+        );
+
+        setProducts(enriched);
 
         const initialQuantities: Record<string, number> = {};
-        items.forEach((product) => {
+        enriched.forEach((product) => {
           initialQuantities[product.id] = 1;
         });
-
         setQuantities(initialQuantities);
       })
       .catch((err) => setError(err.message || "Failed to load products"))
@@ -186,6 +208,12 @@ export default function ProductsPage() {
                   {product.description || "No description available."}
                 </p>
 
+                {product.averageRating && (
+                  <p className="text-yellow-500 font-semibold mt-1">
+                    ⭐ {product.averageRating}/5
+                  </p>
+                )}
+
                 <p className="text-black font-bold mt-3">
                   €{Number(product.price).toFixed(2)}
                 </p>
@@ -211,11 +239,7 @@ export default function ProductsPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          changeQuantity(
-                            product.id,
-                            quantity - 1,
-                            maxStock
-                          )
+                          changeQuantity(product.id, quantity - 1, maxStock)
                         }
                         disabled={quantity <= 1}
                         className="w-10 h-10 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -234,7 +258,7 @@ export default function ProductsPage() {
                           changeQuantity(
                             product.id,
                             Number(e.target.value),
-                            maxStock
+                            maxStock,
                           )
                         }
                         className="w-20 h-10 text-center border border-gray-300 rounded"
@@ -243,15 +267,10 @@ export default function ProductsPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          changeQuantity(
-                            product.id,
-                            quantity + 1,
-                            maxStock
-                          )
+                          changeQuantity(product.id, quantity + 1, maxStock)
                         }
                         disabled={
-                          typeof maxStock === "number" &&
-                          quantity >= maxStock
+                          typeof maxStock === "number" && quantity >= maxStock
                         }
                         className="w-10 h-10 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
                         aria-label={`Increase quantity of ${product.name}`}
@@ -265,9 +284,7 @@ export default function ProductsPage() {
                 <button
                   onClick={() => addToCart(product.id)}
                   disabled={
-                    addingProductId === product.id ||
-                    outOfStock ||
-                    quantity < 1
+                    addingProductId === product.id || outOfStock || quantity < 1
                   }
                   className="mt-4 w-full bg-black text-white py-3 rounded text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -285,8 +302,8 @@ export default function ProductsPage() {
                   {wishlistProductId === product.id
                     ? "Updating..."
                     : wishlistIds.has(product.id)
-                    ? "❤️ Remove from Wishlist"
-                    : "♡ Add to Wishlist"}
+                      ? "❤️ Remove from Wishlist"
+                      : "♡ Add to Wishlist"}
                 </button>
 
                 <Link
