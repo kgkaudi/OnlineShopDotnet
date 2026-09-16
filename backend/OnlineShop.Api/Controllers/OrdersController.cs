@@ -77,6 +77,25 @@ public class OrdersController : ControllerBase
     }
 
     // ---------------------------------------------------------
+    // GET MY ORDERS (always the caller's own, regardless of role)
+    // ---------------------------------------------------------
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<IActionResult> GetMyOrders()
+    {
+        var userId = GetUserId();
+        if (!IsValidObjectId(userId))
+            return Unauthorized("Invalid user token.");
+
+        // isAdmin is forced to false here on purpose — this endpoint always
+        // returns the caller's own orders, even if their account has the
+        // Admin role. Use GET /api/orders for the admin "all orders" view.
+        var orders = await _service.GetAllAsync(false, userId!);
+        // return Ok(me);
+        return Ok(orders);
+    }
+
+    // ---------------------------------------------------------
     // CREATE
     // ---------------------------------------------------------
     [Authorize]

@@ -477,7 +477,7 @@ export const api = {
   
   getOrders: () => 
     request<Order[]>( 
-      "/orders", 
+      "/orders/me", 
       {}, 
       getClientToken() || undefined, 
     ),
