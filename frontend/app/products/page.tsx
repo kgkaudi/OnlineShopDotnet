@@ -133,7 +133,10 @@ export default function ProductsPage() {
         const enriched = await Promise.all(
           items.map(async (product) => {
             try {
-              const reviews = await api.getReviews(product.id);
+              const [reviews, category] = await Promise.all([
+                api.getReviews(product.id),
+                product.categoryId ? api.getCategory(product.categoryId) : null,
+              ]);
 
               const validReviews = reviews.filter(
                 (r) => typeof r.rating === "number" && !Number.isNaN(r.rating),
@@ -151,12 +154,14 @@ export default function ProductsPage() {
                 ...product,
                 averageRating: avg,
                 reviewCount: validReviews.length,
+                categoryName: category ? category.name : "Uncategorized",
               };
             } catch {
               return {
                 ...product,
                 averageRating: null,
                 reviewCount: 0,
+                categoryName: "Uncategorized",
               };
             }
           }),
@@ -218,6 +223,10 @@ export default function ProductsPage() {
               >
                 <h2 className="font-semibold text-lg">{product.name}</h2>
 
+                <p className="text-sm text-gray-500">
+                  Category: {product.categoryName}
+                </p>
+                
                 <p className="text-gray-600 mt-1">
                   {product.description || "No description available."}
                 </p>

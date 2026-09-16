@@ -14,6 +14,7 @@ export default function ProductDetailsPage() {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [categoryName, setCategoryName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState(false);
   const [updatingWishlist, setUpdatingWishlist] = useState(false);
@@ -47,9 +48,21 @@ export default function ProductDetailsPage() {
 
     api
       .getProduct(productId)
-      .then((item) => {
+      .then(async (item) => {
         setProduct(item);
         setQuantity(1);
+
+        // Fetch category name
+        if (item.categoryId) {
+          try {
+            const category = await api.getCategory(item.categoryId);
+            setCategoryName(category.name);
+          } catch {
+            setCategoryName("Uncategorized");
+          }
+        } else {
+          setCategoryName("Uncategorized");
+        }
       })
       .catch((err) => {
         setError(
@@ -334,6 +347,11 @@ export default function ProductDetailsPage() {
               <h1 className="text-3xl sm:text-4xl font-bold mt-2">
                 {product.name}
               </h1>
+              {categoryName && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Category: {categoryName}
+                </p>
+              )}
               {averageRating && (
                 <p className="mt-1 text-lg text-yellow-500 font-semibold">
                   ⭐ {averageRating}/5
