@@ -246,8 +246,16 @@ public class FakeReviewService : IReviewService
         };
     }
 
+    public Task<List<Review>> GetAllAsync()
+    {
+        return Task.FromResult(_store.Values.ToList());
+    }
+
     public Task<List<Review>> GetByProductIdAsync(string productId)
-        => Task.FromResult(_store.Values.Where(r => r.ProductId == productId).ToList());
+    {
+        var list = _store.Values.Where(r => r.ProductId == productId).ToList();
+        return Task.FromResult(list);
+    }
 
     public Task<Review?> CreateAsync(Review review)
     {
@@ -260,5 +268,7 @@ public class FakeReviewService : IReviewService
     }
 
     public Task<bool> DeleteAsync(string id)
-        => Task.FromResult(_store.Remove(id));
+    {
+        return Task.FromResult(_store.Remove(id));
+    }
 }
