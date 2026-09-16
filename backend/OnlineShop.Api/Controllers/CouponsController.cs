@@ -28,21 +28,39 @@ public class CouponsController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // GET ALL (Admin)
+    // GET ALL (All logged-in users)
     // ---------------------------------------------------------
     [Authorize]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        if (!IsAdmin())
-            return Unauthorized("Admin only.");
-
+        // Users should be able to see coupons
         var coupons = await _service.GetAllAsync();
         return Ok(coupons);
     }
 
     // ---------------------------------------------------------
-    // CREATE (Admin)
+    // GET MY COUPONS (User)
+    // ---------------------------------------------------------
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<IActionResult> GetMine()
+    {
+        var userId =
+            User.FindFirst("sub")?.Value ??
+            User.FindFirst("nameid")?.Value ??
+            User.FindFirst("id")?.Value ??
+            User.FindFirst("userId")?.Value;
+
+        if (string.IsNullOrWhiteSpace(userId))
+            return Unauthorized("User ID missing.");
+
+        var coupons = await _service.GetMineAsync(userId);
+        return Ok(coupons);
+    }
+
+    // ---------------------------------------------------------
+    // CREATE (Admin only)
     // ---------------------------------------------------------
     [Authorize]
     [HttpPost]
@@ -74,7 +92,7 @@ public class CouponsController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // DELETE (Admin)
+    // DELETE (Admin only)
     // ---------------------------------------------------------
     [Authorize]
     [HttpDelete("{id}")]

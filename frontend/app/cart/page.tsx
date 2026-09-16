@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Container from "../components/Container";
-import { api, CartResponse, Product, getClientToken } from "@/src/lib/api";
+import {
+  api,
+  CartResponse,
+  Product,
+  Coupon,
+  getClientToken,
+} from "@/src/lib/api";
 import { useSnackbar } from "@/src/context/SnackbarContext";
 
 interface DisplayCartItem {
@@ -17,10 +23,13 @@ export default function CartPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingProductId, setUpdatingProductId] = useState<string | null>(
-    null
+    null,
   );
   const [error, setError] = useState("");
   const { showSnackbar } = useSnackbar();
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   async function loadCart() {
     const token = getClientToken();
@@ -64,7 +73,7 @@ export default function CartPage() {
 
   const totalItems = useMemo(
     () => displayItems.reduce((sum, item) => sum + item.quantity, 0),
-    [displayItems]
+    [displayItems],
   );
 
   const subtotal = useMemo(
@@ -72,10 +81,26 @@ export default function CartPage() {
       displayItems.reduce(
         (sum, item) =>
           sum + (item.product ? Number(item.product.price) * item.quantity : 0),
-        0
+        0,
       ),
-    [displayItems]
+    [displayItems],
   );
+
+  const discount = useMemo(() => {
+    if (!appliedCoupon || subtotal <= 0) return 0;
+
+    if (appliedCoupon.type.toLowerCase() === "percentage") {
+      return Math.min(subtotal, (subtotal * appliedCoupon.value) / 100);
+    }
+
+    if (appliedCoupon.type.toLowerCase() === "fixed") {
+      return Math.min(subtotal, appliedCoupon.value);
+    }
+
+    return 0;
+  }, [appliedCoupon, subtotal]);
+
+  const total = Math.max(0, subtotal - discount);
 
   async function updateQuantity(productId: string, quantity: number) {
     if (quantity < 1) return;
@@ -88,7 +113,7 @@ export default function CartPage() {
     } catch (err) {
       showSnackbar(
         err instanceof Error ? err.message : "Failed to update quantity.",
-        "error"
+        "error",
       );
     } finally {
       setUpdatingProductId(null);
@@ -105,7 +130,7 @@ export default function CartPage() {
     } catch (err) {
       showSnackbar(
         err instanceof Error ? err.message : "Failed to remove item.",
-        "error"
+        "error",
       );
     } finally {
       setUpdatingProductId(null);
@@ -115,16 +140,49 @@ export default function CartPage() {
   async function clearCart() {
     try {
       await api.clearCart();
-      setCart((current) =>
-        current ? { ...current, items: [] } : current
-      );
+      setCart((current) => (current ? { ...current, items: [] } : current));
       showSnackbar("Cart cleared.", "success");
     } catch (err) {
       showSnackbar(
         err instanceof Error ? err.message : "Failed to clear cart.",
-        "error"
+        "error",
       );
     }
+  }
+
+  async function handleApplyCoupon() {
+    const code = couponCode.trim();
+
+    if (!code) {
+      showSnackbar("Please enter a coupon code.", "error");
+      return;
+    }
+
+    try {
+      setApplyingCoupon(true);
+
+      const coupon = await api.validateCoupon(code);
+
+      setAppliedCoupon(coupon);
+      setCouponCode(coupon.code);
+
+      showSnackbar("Coupon applied successfully!", "success");
+    } catch (err) {
+      setAppliedCoupon(null);
+
+      showSnackbar(
+        err instanceof Error ? err.message : "Invalid or expired coupon.",
+        "error",
+      );
+    } finally {
+      setApplyingCoupon(false);
+    }
+  }
+
+  function handleRemoveCoupon() {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    showSnackbar("Coupon removed.", "success");
   }
 
   if (loading) {
@@ -273,8 +331,77 @@ export default function CartPage() {
             <span>€{subtotal.toFixed(2)}</span>
           </div>
 
+          {appliedCoupon && (
+            <div className="flex justify-between text-sm text-green-700">
+              <span>Discount</span>
+              <span>−€{discount.toFixed(2)}</span>
+            </div>
+          )}
+
+          <div className="border-t pt-4 mt-4">
+            <label
+              htmlFor="coupon-code"
+              className="block text-sm font-semibold mb-2"
+            >
+              Coupon code
+            </label>
+
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-green-200 bg-green-50 p-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-green-800">
+                    {appliedCoupon.code}
+                  </p>
+                  <p className="text-xs text-green-700 mt-1">
+                    {appliedCoupon.type.toLowerCase() === "percentage"
+                      ? `${appliedCoupon.value}% discount`
+                      : `€${appliedCoupon.value.toFixed(2)} discount`}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRemoveCoupon}
+                  className="text-sm font-medium text-red-600 hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  id="coupon-code"
+                  type="text"
+                  value={couponCode}
+                  onChange={(event) => setCouponCode(event.target.value)}
+                  placeholder="Enter coupon"
+                  disabled={applyingCoupon}
+                  className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={applyingCoupon || !couponCode.trim()}
+                  className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+                >
+                  {applyingCoupon ? "Checking..." : "Apply"}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* TOTAL */}
+          <div className="border-t pt-4 mt-4 flex justify-between font-bold text-xl">
+            <span>Total</span>
+            <span>€{total.toFixed(2)}</span>
+          </div>
+
+          {/* CHECKOUT */}
           <button
-            onClick={() => showSnackbar("Checkout is not implemented yet.", "success")}
+            onClick={() =>
+              showSnackbar("Checkout is not implemented yet.", "success")
+            }
             className="mt-5 w-full bg-black text-white py-3 rounded hover:bg-gray-800"
           >
             Checkout

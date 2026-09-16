@@ -53,15 +53,34 @@ public class CouponService : ICouponService
         if (coupon.UsedCount < 0)
             return false;
 
+        // UserId is optional — no validation needed
+
         return true;
     }
 
     // ---------------------------------------------------------
-    // GET ALL
+    // GET ALL (Admin)
     // ---------------------------------------------------------
 
     public async Task<List<Coupon>> GetAllAsync() =>
         await _repo.GetAllAsync();
+
+    // ---------------------------------------------------------
+    // GET MINE (User)
+    // ---------------------------------------------------------
+
+    public async Task<List<Coupon>> GetMineAsync(string userId)
+    {
+        var all = await _repo.GetAllAsync();
+
+        return all
+            .Where(c =>
+                c.Active &&
+                c.Expiration > DateTime.UtcNow &&
+                c.UserId == userId
+            )
+            .ToList();
+    }
 
     // ---------------------------------------------------------
     // GET BY CODE
@@ -102,7 +121,7 @@ public class CouponService : ICouponService
     }
 
     // ---------------------------------------------------------
-    // CREATE
+    // CREATE (Admin)
     // ---------------------------------------------------------
 
     public async Task<Coupon?> CreateAsync(Coupon coupon)
@@ -110,19 +129,10 @@ public class CouponService : ICouponService
         if (coupon == null)
             return null;
 
-        if (string.IsNullOrWhiteSpace(coupon.Code))
+        if (!IsValidCoupon(coupon))
             return null;
 
         coupon.Code = coupon.Code.Trim();
-
-        if (string.IsNullOrWhiteSpace(coupon.Type))
-            coupon.Type = "Default";
-
-        if (coupon.Value <= 0)
-            return null;
-
-        if (coupon.MaxUsage <= 0)
-            return null;
 
         var existing = await _repo.GetByCodeAsync(coupon.Code);
         if (existing != null)
@@ -131,7 +141,6 @@ public class CouponService : ICouponService
         if (string.IsNullOrWhiteSpace(coupon.Id) || !ObjectId.TryParse(coupon.Id, out _))
             coupon.Id = ObjectId.GenerateNewId().ToString();
 
-        // ensure UsedCount starts at 0
         coupon.UsedCount = 0;
 
         await _repo.CreateAsync(coupon);
@@ -139,7 +148,7 @@ public class CouponService : ICouponService
     }
 
     // ---------------------------------------------------------
-    // DELETE
+    // DELETE (Admin)
     // ---------------------------------------------------------
 
     public async Task<bool> DeleteAsync(string id)

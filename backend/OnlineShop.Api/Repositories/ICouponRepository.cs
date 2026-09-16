@@ -5,6 +5,7 @@ namespace OnlineShop.Api.Repositories;
 public interface ICouponRepository
 {
     Task<Coupon?> GetByCodeAsync(string code);
+    Task<Coupon?> GetByIdAsync(string id);
     Task<List<Coupon>> GetAllAsync();
     Task CreateAsync(Coupon coupon);
     Task<bool> UpdateAsync(Coupon coupon);

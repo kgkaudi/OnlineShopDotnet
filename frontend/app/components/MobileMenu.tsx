@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { clientIsAdmin } from "@/src/lib/api";
+import { useRouter } from "next/navigation";
+import { clientIsAdmin, getClientToken } from "@/src/lib/api";
 
 export default function MobileMenu() {
   const [open, setOpen] = useState(false);
@@ -10,10 +11,14 @@ export default function MobileMenu() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  const router = useRouter();
+
   useEffect(() => {
+    // Mark hydration complete
     setHydrated(true);
 
-    const token = localStorage.getItem("token");
+    // Now safe to read browser-only APIs
+    const token = getClientToken();
 
     if (token) {
       setIsLoggedIn(true);
@@ -24,8 +29,30 @@ export default function MobileMenu() {
     }
   }, []);
 
+  // 🚨 FIX: Prevent hydration mismatch
+  // Render a stable placeholder until hydration is complete
+  if (!hydrated) {
+    return (
+      <button
+        type="button"
+        className="md:hidden p-2 rounded border border-gray-300"
+        aria-label="Open navigation menu"
+      >
+        <span className="text-xl">☰</span>
+      </button>
+    );
+  }
+
   function closeMenu() {
     setOpen(false);
+  }
+
+  function handleLogout() {
+    localStorage.removeItem("token");
+    setIsLoggedIn(false);
+    setIsAdmin(false);
+    closeMenu();
+    router.push("/auth/login");
   }
 
   return (
@@ -67,6 +94,7 @@ export default function MobileMenu() {
             ×
           </button>
 
+          {/* Public links */}
           <Link href="/" onClick={closeMenu} className="block text-lg">
             Home
           </Link>
@@ -83,11 +111,16 @@ export default function MobileMenu() {
             Wishlist
           </Link>
 
+          <Link href="/coupons" onClick={closeMenu} className="block text-lg">
+            Coupons
+          </Link>
+
           <Link href="/orders" onClick={closeMenu} className="block text-lg">
             Orders
           </Link>
 
-          {hydrated && isLoggedIn && (
+          {/* Logged-in user section */}
+          {isLoggedIn && (
             <>
               <Link
                 href="/profile"
@@ -97,81 +130,79 @@ export default function MobileMenu() {
                 Profile
               </Link>
 
+              {/* Admin section */}
               {isAdmin && (
-                <>
-                  <div className="border-t pt-4 mt-2">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                      Admin
-                    </p>
+                <div className="border-t pt-4 mt-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    Admin
+                  </p>
 
-                    <div className="space-y-3">
-                      <Link
-                        href="/admin/users"
-                        onClick={closeMenu}
-                        className="block text-lg font-semibold"
-                      >
-                        Users
-                      </Link>
+                  <div className="space-y-3">
+                    <Link
+                      href="/admin/users"
+                      onClick={closeMenu}
+                      className="block text-lg font-semibold"
+                    >
+                      Users
+                    </Link>
 
-                      <Link
-                        href="/admin/products"
-                        onClick={closeMenu}
-                        className="block text-lg font-semibold"
-                      >
-                        Products Admin
-                      </Link>
+                    <Link
+                      href="/admin/products"
+                      onClick={closeMenu}
+                      className="block text-lg font-semibold"
+                    >
+                      Products Admin
+                    </Link>
 
-                      <Link
-                        href="/admin/categories"
-                        onClick={closeMenu}
-                        className="block text-lg font-semibold"
-                      >
-                        Categories Admin
-                      </Link>
+                    <Link
+                      href="/admin/categories"
+                      onClick={closeMenu}
+                      className="block text-lg font-semibold"
+                    >
+                      Categories Admin
+                    </Link>
 
-                      <Link
-                        href="/admin/reviews"
-                        onClick={closeMenu}
-                        className="block text-lg font-semibold"
-                      >
-                        Reviews Admin
-                      </Link>
-                    </div>
+                    <Link
+                      href="/admin/reviews"
+                      onClick={closeMenu}
+                      className="block text-lg font-semibold"
+                    >
+                      Reviews Admin
+                    </Link>
+
+                    <Link
+                      href="/admin/coupons"
+                      onClick={closeMenu}
+                      className="block text-lg font-semibold"
+                    >
+                      Coupons Admin
+                    </Link>
                   </div>
-                </>
+                </div>
               )}
             </>
           )}
 
-          {hydrated && (
-            <div className="border-t pt-4 mt-2">
-              {!isLoggedIn && (
-                <Link
-                  href="/auth/login"
-                  onClick={closeMenu}
-                  className="block text-lg"
-                >
-                  Login
-                </Link>
-              )}
-
-              {isLoggedIn && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    localStorage.removeItem("token");
-                    setIsLoggedIn(false);
-                    setIsAdmin(false);
-                    closeMenu();
-                    window.location.href = "/auth/login";
-                  }}
-                  className="block text-lg text-left w-full"
-                >
-                  Logout
-                </button>
-              )}
-            </div>
-          )}
+          {/* Login / Logout */}
+          <div className="border-t pt-4 mt-2">
+            {!isLoggedIn ? (
+              <Link
+                href="/auth/login"
+                onClick={closeMenu}
+                className="block text-lg"
+              >
+                Login
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="block text-lg text-left w-full text-red-600 hover:text-red-700 font-semibold"
+              >
+                Logout
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </>

@@ -105,6 +105,18 @@ export interface Order {
   status: string;
 }
 
+export interface Coupon {
+  id: string;
+  code: string;
+  type: "percentage" | "fixed" | string;
+  value: number;
+  expiration: string;
+  maxUsage: number;
+  usedCount: number;
+  active: boolean;
+  userId?: string | null;
+}
+
 /**
  * Core request wrapper
  */
@@ -564,6 +576,43 @@ export const api = {
       token || undefined,
     );
   },
+
+  // =========================================================
+  // COUPONS
+  // =========================================================
+
+  // Public validation
+  validateCoupon: (code: string) =>
+    request<Coupon>(`/coupons/validate/${encodeURIComponent(code.trim())}`),
+
+  // Admin-only: get all coupons
+  getCoupons: () =>
+    request<Coupon[]>("/coupons", {}, getClientToken() || undefined),
+
+  // User-only: get active, non-expired coupons
+  getMyCoupons: () =>
+    request<Coupon[]>("/coupons/me", {}, getClientToken() || undefined),
+
+  // Admin-only: create coupon
+  createCoupon: (data: Coupon) =>
+    request<Coupon>(
+      "/coupons",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      getClientToken() || undefined,
+    ),
+
+  // Admin-only: delete coupon
+  deleteCoupon: (id: string) =>
+    request<{ message: string }>(
+      `/coupons/${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+      },
+      getClientToken() || undefined,
+    ),
 
   // =========================================================
   // REVIEWS ADMIN

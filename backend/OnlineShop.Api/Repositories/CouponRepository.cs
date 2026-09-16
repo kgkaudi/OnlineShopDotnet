@@ -22,6 +22,9 @@ public class CouponRepository : ICouponRepository
         _coupons = db.GetCollection<Coupon>("Coupons");
     }
 
+    // ---------------------------------------------------------
+    // CREATE
+    // ---------------------------------------------------------
     public async Task CreateAsync(Coupon coupon)
     {
         if (coupon == null)
@@ -29,6 +32,8 @@ public class CouponRepository : ICouponRepository
 
         if (string.IsNullOrWhiteSpace(coupon.Code))
             throw new ArgumentNullException(nameof(coupon.Code));
+
+        coupon.Code = coupon.Code.Trim();
 
         if (string.IsNullOrWhiteSpace(coupon.Type))
             throw new ArgumentNullException(nameof(coupon.Type));
@@ -40,22 +45,35 @@ public class CouponRepository : ICouponRepository
             coupon.Id = ObjectId.GenerateNewId().ToString();
 
         if (!ObjectId.TryParse(coupon.Id, out _))
-            throw new ArgumentNullException(nameof(coupon.Id));
+            throw new ArgumentException("Invalid coupon ID format.", nameof(coupon.Id));
+
+        // UserId is optional — no validation needed here
 
         await _coupons.InsertOneAsync(coupon);
     }
 
+    // ---------------------------------------------------------
+    // GET BY CODE
+    // ---------------------------------------------------------
     public async Task<Coupon?> GetByCodeAsync(string code)
     {
         if (string.IsNullOrWhiteSpace(code))
             return null;
 
-        return await _coupons.Find(c => c.Code == code).FirstOrDefaultAsync();
+        var normalized = code.Trim();
+
+        return await _coupons.Find(c => c.Code == normalized).FirstOrDefaultAsync();
     }
 
+    // ---------------------------------------------------------
+    // GET ALL (Admin)
+    // ---------------------------------------------------------
     public async Task<List<Coupon>> GetAllAsync() =>
         await _coupons.Find(_ => true).ToListAsync();
 
+    // ---------------------------------------------------------
+    // GET BY ID
+    // ---------------------------------------------------------
     public async Task<Coupon?> GetByIdAsync(string id)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -67,6 +85,9 @@ public class CouponRepository : ICouponRepository
         return await _coupons.Find(c => c.Id == id).FirstOrDefaultAsync();
     }
 
+    // ---------------------------------------------------------
+    // UPDATE (Admin)
+    // ---------------------------------------------------------
     public async Task<bool> UpdateAsync(Coupon coupon)
     {
         if (coupon == null)
@@ -81,11 +102,15 @@ public class CouponRepository : ICouponRepository
         if (string.IsNullOrWhiteSpace(coupon.Code))
             return false;
 
+        coupon.Code = coupon.Code.Trim();
+
         if (string.IsNullOrWhiteSpace(coupon.Type))
             return false;
 
         if (coupon.Value <= 0)
             return false;
+
+        // UserId is optional — no validation needed
 
         var existing = await GetByIdAsync(coupon.Id);
         if (existing == null)
@@ -96,6 +121,9 @@ public class CouponRepository : ICouponRepository
         return result.MatchedCount == 1 && result.ModifiedCount == 1;
     }
 
+    // ---------------------------------------------------------
+    // DELETE (Admin)
+    // ---------------------------------------------------------
     public async Task<bool> DeleteAsync(string id)
     {
         if (string.IsNullOrWhiteSpace(id))

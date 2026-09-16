@@ -329,6 +329,12 @@ public class FakeCouponService : ICouponService
 {
     private readonly Dictionary<string, Coupon> _store = new();
 
+    public Task<List<Coupon>> GetMineAsync(string userId)
+    {
+        // For tests, return all coupons (same behavior as before)
+        return Task.FromResult(_store.Values.ToList());
+    }
+
     public void AddCoupon(string id, string code, decimal value)
     {
         _store[id] = new Coupon
