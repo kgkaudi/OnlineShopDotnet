@@ -9,6 +9,10 @@ interface Props {
 }
 
 export default function AdminOrderCardMobile({ order, onDelete }: Props) {
+  function onDeleteRequest(order: any): void {
+    throw new Error("Function not implemented.");
+  }
+
   return (
     <div className="border rounded-lg bg-white p-4 shadow-sm">
       <p className="font-semibold">Order ID: {order.id}</p>
@@ -29,7 +33,7 @@ export default function AdminOrderCardMobile({ order, onDelete }: Props) {
 
         <button
           className="px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-          onClick={() => onDelete(order.id)}
+          onClick={() => onDeleteRequest(order)}
         >
           Delete
         </button>

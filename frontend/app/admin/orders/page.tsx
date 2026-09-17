@@ -8,10 +8,15 @@ import AdminOrdersLoading from "../../components/Admin/Orders/AdminOrdersLoading
 import AdminOrdersEmpty from "../../components/Admin/Orders/AdminOrdersEmpty";
 import AdminOrderCardMobile from "../../components/Admin/Orders/AdminOrderCardMobile";
 import AdminOrdersTable from "../../components/Admin/Orders/AdminOrdersTable";
+import DeleteOrderModal from "@/app/components/Admin/Orders/DeleteOrderModal";
 
 export default function OrdersAdminPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // NEW: modal state
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -39,12 +44,17 @@ export default function OrdersAdminPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  function deleteOrder(id: string) {
-    if (!confirm("Delete this order?")) return;
+  // NEW: modal-based delete
+  async function handleDeleteOrder(order: any) {
+    setDeletingId(order.id);
 
-    api.deleteOrder(id).then(() => {
-      setOrders((prev) => prev.filter((o) => o.id !== id));
-    });
+    try {
+      await api.deleteOrder(order.id);
+      setOrders((prev) => prev.filter((o) => o.id !== order.id));
+    } finally {
+      setDeletingId(null);
+      setSelectedOrder(null);
+    }
   }
 
   if (loading) {
@@ -75,13 +85,35 @@ export default function OrdersAdminPage() {
           <AdminOrderCardMobile
             key={order.id}
             order={order}
-            onDelete={deleteOrder}
+
+            // FIX: trigger modal instead of deleting directly
+            onDeleteRequest={() => setSelectedOrder(order)}
+
+            deletingId={deletingId}
           />
         ))}
       </section>
 
       {/* Desktop */}
-      <AdminOrdersTable orders={orders} onDelete={deleteOrder} />
+      <AdminOrdersTable
+        orders={orders}
+
+        // FIX: trigger modal instead of deleting directly
+        onDeleteRequest={(order) => setSelectedOrder(order)}
+
+        deletingId={deletingId}
+      />
+
+      {/* MODAL OUTSIDE TABLE */}
+      {selectedOrder && (
+        <DeleteOrderModal
+          orderId={selectedOrder.id}
+          userName={selectedOrder.userFullName}
+          total={selectedOrder.total}
+          onConfirm={() => handleDeleteOrder(selectedOrder)}
+          onCancel={() => setSelectedOrder(null)}
+        />
+      )}
     </main>
   );
 }

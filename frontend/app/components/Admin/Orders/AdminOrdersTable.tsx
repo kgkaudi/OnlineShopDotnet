@@ -4,10 +4,17 @@ import AdminOrderRow from "./AdminOrderRow";
 
 interface Props {
   orders: any[];
-  onDelete: (id: string) => void;
+  deletingId: string | null;
+
+  // NEW: modal-based delete
+  onDeleteRequest: (order: any) => void;
 }
 
-export default function AdminOrdersTable({ orders, onDelete }: Props) {
+export default function AdminOrdersTable({
+  orders,
+  deletingId,
+  onDeleteRequest,
+}: Props) {
   return (
     <section className="hidden md:block border rounded-lg overflow-hidden bg-white">
       <div className="overflow-x-auto">
@@ -28,7 +35,8 @@ export default function AdminOrdersTable({ orders, onDelete }: Props) {
               <AdminOrderRow
                 key={order.id}
                 order={order}
-                onDelete={onDelete}
+                deletingId={deletingId}
+                onDeleteRequest={(o) => onDeleteRequest(o)}
               />
             ))}
           </tbody>

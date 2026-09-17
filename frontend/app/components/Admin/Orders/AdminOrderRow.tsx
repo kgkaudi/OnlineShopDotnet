@@ -4,10 +4,19 @@ import Link from "next/link";
 
 interface Props {
   order: any;
-  onDelete: (id: string) => void;
+  deletingId: string | null;
+
+  // NEW: modal-based delete
+  onDeleteRequest: (order: any) => void;
 }
 
-export default function AdminOrderRow({ order, onDelete }: Props) {
+export default function AdminOrderRow({
+  order,
+  deletingId,
+  onDeleteRequest,
+}: Props) {
+  const isDeleting = deletingId === order.id;
+
   return (
     <tr className="border-b last:border-b-0">
       <td className="px-4 py-4 font-medium">{order.id}</td>
@@ -32,10 +41,12 @@ export default function AdminOrderRow({ order, onDelete }: Props) {
           </Link>
 
           <button
-            className="px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-            onClick={() => onDelete(order.id)}
+            type="button"
+            disabled={isDeleting}
+            onClick={() => onDeleteRequest(order)}
+            className="px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
           >
-            Delete
+            {isDeleting ? "Deleting..." : "Delete"}
           </button>
         </div>
       </td>
