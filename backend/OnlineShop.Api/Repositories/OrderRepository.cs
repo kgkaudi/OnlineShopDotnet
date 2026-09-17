@@ -21,7 +21,7 @@ public class OrderRepository : IOrderRepository
 
         _orders = db.GetCollection<Order>("Order");
     }
-    
+
     public async Task CreateAsync(Order order)
     {
         if (order == null)
@@ -111,5 +111,32 @@ public class OrderRepository : IOrderRepository
 
         var result = await _orders.DeleteOneAsync(o => o.Id == id);
         return result.DeletedCount == 1;
+    }
+
+public async Task<bool> CancelAsync(string id, string userId, bool isAdmin)
+    {
+        if (string.IsNullOrWhiteSpace(id) || !ObjectId.TryParse(id, out _))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(userId) || !ObjectId.TryParse(userId, out _))
+            return false;
+
+        var filterBuilder = Builders<Order>.Filter;
+
+        var filter = filterBuilder.Eq(order => order.Id, id)
+            & filterBuilder.In(
+                order => order.Status,
+                new[] { "Pending", "pending", "Processing", "processing" }
+            );
+
+        if (!isAdmin)
+            filter &= filterBuilder.Eq(order => order.UserId, userId);
+
+        var update = Builders<Order>.Update
+            .Set(order => order.Status, "Cancelled");
+
+        var result = await _orders.UpdateOneAsync(filter, update);
+
+        return result.ModifiedCount == 1;
     }
 }

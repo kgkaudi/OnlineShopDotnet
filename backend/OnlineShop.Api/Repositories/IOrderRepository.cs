@@ -1,3 +1,4 @@
+
 using OnlineShop.Api.Models;
 
 namespace OnlineShop.Api.Repositories;
@@ -10,4 +11,5 @@ public interface IOrderRepository
     Task<bool> UpdateAsync(Order order);
     Task<bool> DeleteAsync(string id);
     Task<List<Order>> GetByUserIdAsync(string userId);
+    Task<bool> CancelAsync(string id, string userId, bool isAdmin);
 }

@@ -17,17 +17,19 @@ public class OrderService : IOrderService
     // VALIDATION HELPERS
     // ---------------------------------------------------------
 
-    private static bool IsValidObjectId(string id)
+    private static bool IsValidObjectId(string? id)
     {
-        return !string.IsNullOrWhiteSpace(id) && ObjectId.TryParse(id, out _);
+        return !string.IsNullOrWhiteSpace(id)
+            && ObjectId.TryParse(id, out _);
     }
 
-    private static bool IsValidUserId(string userId)
+    private static bool IsValidUserId(string? userId)
     {
-        return !string.IsNullOrWhiteSpace(userId) && ObjectId.TryParse(userId, out _);
+        return !string.IsNullOrWhiteSpace(userId)
+            && ObjectId.TryParse(userId, out _);
     }
 
-    private static bool IsValidOrder(Order order)
+    private static bool IsValidOrder(Order? order)
     {
         if (order == null)
             return false;
@@ -57,12 +59,16 @@ public class OrderService : IOrderService
     // GET BY ID
     // ---------------------------------------------------------
 
-    public async Task<Order?> GetByIdAsync(string id, bool isAdmin, string userId)
+    public async Task<Order?> GetByIdAsync(
+        string id,
+        bool isAdmin,
+        string userId)
     {
         if (!IsValidObjectId(id))
             return null;
 
         var order = await _repo.GetByIdAsync(id);
+
         if (order == null)
             return null;
 
@@ -81,10 +87,14 @@ public class OrderService : IOrderService
         if (!IsValidOrder(order))
             return null;
 
-        if (string.IsNullOrWhiteSpace(order.Id) || !IsValidObjectId(order.Id))
+        if (string.IsNullOrWhiteSpace(order.Id)
+            || !IsValidObjectId(order.Id))
+        {
             order.Id = ObjectId.GenerateNewId().ToString();
+        }
 
         await _repo.CreateAsync(order);
+
         return order;
     }
 
@@ -92,22 +102,26 @@ public class OrderService : IOrderService
     // UPDATE
     // ---------------------------------------------------------
 
-    public async Task<bool> UpdateAsync(Order order, bool isAdmin, string userId)
+    public async Task<bool> UpdateAsync(
+        Order order,
+        bool isAdmin,
+        string userId)
     {
         if (order == null)
             return false;
 
-        if (string.IsNullOrWhiteSpace(order.Id) || !IsValidObjectId(order.Id))
+        if (!IsValidObjectId(order.Id))
             return false;
 
         var existing = await _repo.GetByIdAsync(order.Id);
+
         if (existing == null)
             return false;
 
         if (!isAdmin && existing.UserId != userId)
             return false;
 
-        // Prevent changing owner
+        // Prevent changing the order owner.
         if (order.UserId != existing.UserId)
             return false;
 
@@ -118,12 +132,16 @@ public class OrderService : IOrderService
     // DELETE
     // ---------------------------------------------------------
 
-    public async Task<bool> DeleteAsync(string id, bool isAdmin, string userId)
+    public async Task<bool> DeleteAsync(
+        string id,
+        bool isAdmin,
+        string userId)
     {
-        if (string.IsNullOrWhiteSpace(id) || !IsValidObjectId(id))
+        if (!IsValidObjectId(id))
             return false;
 
         var existing = await _repo.GetByIdAsync(id);
+
         if (existing == null)
             return false;
 
@@ -131,5 +149,26 @@ public class OrderService : IOrderService
             return false;
 
         return await _repo.DeleteAsync(id);
+    }
+
+    // ---------------------------------------------------------
+    // CANCEL ORDER
+    // ---------------------------------------------------------
+
+    public async Task<bool> CancelAsync(
+        string id,
+        bool isAdmin,
+        string userId)
+    {
+        if (!IsValidObjectId(id))
+            return false;
+
+        if (!IsValidUserId(userId))
+            return false;
+
+        return await _repo.CancelAsync(
+            id,
+            userId,
+            isAdmin);
     }
 }

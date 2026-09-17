@@ -503,6 +503,25 @@ export const api = {
   getOrders: () =>
     request<Order[]>("/orders/me", {}, getClientToken() || undefined),
 
+  cancelOrder: (id: string) =>
+    request<Order>(
+      `/orders/${encodeURIComponent(id)}/cancel`,
+      {
+        method: "POST",
+      },
+      getClientToken() || undefined,
+    ),
+
+  updateOrder: (id: string, data: Order) =>
+    request<Order>(
+      `/orders/${encodeURIComponent(id)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      },
+      getClientToken() || undefined,
+    ),
+
   // =========================================================
   // CATEGORIES
   // =========================================================
