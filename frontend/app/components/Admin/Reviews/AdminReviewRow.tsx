@@ -5,21 +5,16 @@ import Link from "next/link";
 interface Props {
   review: any;
   deletingId: string | null;
-  confirmId: string | null;
-  onConfirm: (id: string) => void;
-  onCancel: () => void;
-  onDelete: (id: string) => void;
+
+  // NEW: modal-based delete
+  onDeleteRequest: (review: any) => void;
 }
 
 export default function AdminReviewRow({
   review,
   deletingId,
-  confirmId,
-  onConfirm,
-  onCancel,
-  onDelete,
+  onDeleteRequest,
 }: Props) {
-  const isConfirming = confirmId === review.id;
   const isDeleting = deletingId === review.id;
 
   return (
@@ -44,35 +39,16 @@ export default function AdminReviewRow({
             {review.productName}
           </Link>
         </p>
-
-        {isConfirming && (
-          <div className="mt-4 flex gap-3">
-            <button
-              onClick={() => onDelete(review.id)}
-              className="bg-red-700 text-white px-3 py-1 rounded"
-            >
-              Yes, delete
-            </button>
-
-            <button
-              onClick={onCancel}
-              className="bg-gray-300 text-black px-3 py-1 rounded"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
       </div>
 
-      {!isConfirming && (
-        <button
-          onClick={() => onConfirm(review.id)}
-          disabled={isDeleting}
-          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
-        >
-          {isDeleting ? "Deleting..." : "Delete"}
-        </button>
-      )}
+      <button
+        type="button"
+        disabled={isDeleting}
+        onClick={() => onDeleteRequest(review)}
+        className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
+      >
+        {isDeleting ? "Deleting..." : "Delete"}
+      </button>
     </div>
   );
 }

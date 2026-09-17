@@ -5,19 +5,15 @@ import AdminReviewRow from "./AdminReviewRow";
 interface Props {
   reviews: any[];
   deletingId: string | null;
-  confirmId: string | null;
-  onConfirm: (id: string) => void;
-  onCancel: () => void;
-  onDelete: (id: string) => void;
+
+  // NEW: modal-based delete
+  onDeleteRequest: (review: any) => void;
 }
 
 export default function AdminReviewsList({
   reviews,
   deletingId,
-  confirmId,
-  onConfirm,
-  onCancel,
-  onDelete,
+  onDeleteRequest,
 }: Props) {
   return (
     <div className="space-y-4">
@@ -26,10 +22,9 @@ export default function AdminReviewsList({
           key={r.id}
           review={r}
           deletingId={deletingId}
-          confirmId={confirmId}
-          onConfirm={onConfirm}
-          onCancel={onCancel}
-          onDelete={onDelete}
+
+          // pass full review object to trigger modal
+          onDeleteRequest={() => onDeleteRequest(r)}
         />
       ))}
     </div>

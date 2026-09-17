@@ -9,12 +9,15 @@ import AdminReviewsHeader from "../../components/Admin/Reviews/AdminReviewsHeade
 import AdminReviewsLoading from "../../components/Admin/Reviews/AdminReviewsLoading";
 import AdminReviewsEmpty from "../../components/Admin/Reviews/AdminReviewsEmpty";
 import AdminReviewsList from "../../components/Admin/Reviews/AdminReviewsList";
+import DeleteReviewModal from "@/app/components/Admin/Reviews/DeleteReviewModal";
 
 export default function ReviewsAdminPage() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  // NEW: modal state
+  const [selectedReview, setSelectedReview] = useState<any | null>(null);
 
   const { showSnackbar } = useSnackbar();
 
@@ -49,18 +52,19 @@ export default function ReviewsAdminPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function deleteReview(id: string) {
-    try {
-      setDeletingId(id);
-      await api.deleteReview(id);
+  // NEW: modal-based delete
+  async function handleDeleteReview(review: any) {
+    setDeletingId(review.id);
 
-      setReviews((current) => current.filter((r) => r.id !== id));
+    try {
+      await api.deleteReview(review.id);
+      setReviews((current) => current.filter((r) => r.id !== review.id));
       showSnackbar("Review deleted successfully.", "success");
     } catch {
       showSnackbar("Failed to delete review.", "error");
     } finally {
       setDeletingId(null);
-      setConfirmId(null);
+      setSelectedReview(null);
     }
   }
 
@@ -75,10 +79,17 @@ export default function ReviewsAdminPage() {
         <AdminReviewsList
           reviews={reviews}
           deletingId={deletingId}
-          confirmId={confirmId}
-          onConfirm={setConfirmId}
-          onCancel={() => setConfirmId(null)}
-          onDelete={deleteReview}
+
+          onDeleteRequest={(review) => setSelectedReview(review)}
+        />
+      )}
+
+      {selectedReview && (
+        <DeleteReviewModal
+          reviewUserName={selectedReview.userName}
+          reviewProductName={selectedReview.productName}
+          onConfirm={() => handleDeleteReview(selectedReview)}
+          onCancel={() => setSelectedReview(null)}
         />
       )}
     </Container>
