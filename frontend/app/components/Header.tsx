@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "@/src/store/authStore";
 import { logout as logoutApi } from "@/src/api/auth";
 import { clientIsAdmin, api } from "@/src/lib/api";
+import { usePathname } from "next/navigation";
 
 export default function Header() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+  const [adminOpen, setAdminOpen] = useState(false);
 
   useEffect(() => {
     setHydrated(true);
@@ -53,6 +55,18 @@ export default function Header() {
     }
   }, [isLoggedInStore]);
 
+  useEffect(() => {
+    function handleOutsideClick(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".admin-dropdown")) {
+        setAdminOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
   // Prevent hydration mismatch
   if (!hydrated) {
     return (
@@ -68,6 +82,11 @@ export default function Header() {
 
   function closeMenu() {
     setMenuOpen(false);
+  }
+
+  const pathname = usePathname();
+  function isActive(path: string) {
+    return pathname === path;
   }
 
   async function handleLogout() {
@@ -102,78 +121,146 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden items-center gap-6 text-sm md:flex">
-          <Link href="/products" className="text-black hover:underline">
+          <Link
+            href="/products"
+            className={`text-black hover:underline ${
+              isActive("/products") ? "underline font-semibold" : ""
+            }`}
+          >
             Products
           </Link>
 
-          <Link href="/cart" className="text-black hover:underline">
+          <Link
+            href="/cart"
+            className={`text-black hover:underline ${
+              isActive("/cart") ? "underline font-semibold" : ""
+            }`}
+          >
             Cart
           </Link>
 
-          <Link href="/wishlist" className="text-black hover:underline">
+          <Link
+            href="/wishlist"
+            className={`text-black hover:underline ${
+              isActive("/wishlist") ? "underline font-semibold" : ""
+            }`}
+          >
             Wishlist
           </Link>
 
           {isLoggedIn && (
             <>
-              <Link href="/orders" className="text-black hover:underline">
+              <Link
+                href="/orders"
+                className={`text-black hover:underline ${
+                  isActive("/orders") ? "underline font-semibold" : ""
+                }`}
+              >
                 Orders
               </Link>
 
-              <Link href="/coupons" className="text-black hover:underline">
+              <Link
+                href="/coupons"
+                className={`text-black hover:underline ${
+                  isActive("/coupons") ? "underline font-semibold" : ""
+                }`}
+              >
                 My Coupons
               </Link>
 
-              <Link href="/profile" className="text-black hover:underline">
+              <Link
+                href="/profile"
+                className={`text-black hover:underline ${
+                  isActive("/profile") ? "underline font-semibold" : ""
+                }`}
+              >
                 Profile
               </Link>
 
               {isAdmin && (
-                <div className="relative group">
-                  <button className="font-semibold text-black hover:underline">
+                <div
+                  className="relative"
+                  onMouseEnter={() => setAdminOpen(true)}
+                  onMouseLeave={() => setAdminOpen(false)}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setAdminOpen((prev) => !prev)}
+                    className={`font-semibold text-black hover:underline ${
+                      pathname.startsWith("/admin") ? "underline" : ""
+                    }`}
+                  >
                     Admin ▾
                   </button>
 
                   {/* Dropdown */}
-                  <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                  <div
+                    className={`absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg transition-all duration-200 ${
+                      adminOpen ? "opacity-100 visible" : "opacity-0 invisible"
+                    }`}
+                  >
                     <Link
                       href="/admin/users"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className={`block px-4 py-2 hover:bg-gray-100 ${
+                        isActive("/admin/users")
+                          ? "underline font-semibold"
+                          : ""
+                      }`}
                     >
                       Users
                     </Link>
 
                     <Link
                       href="/admin/products"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className={`block px-4 py-2 hover:bg-gray-100 ${
+                        isActive("/admin/products")
+                          ? "underline font-semibold"
+                          : ""
+                      }`}
                     >
                       Products
                     </Link>
 
                     <Link
                       href="/admin/categories"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className={`block px-4 py-2 hover:bg-gray-100 ${
+                        isActive("/admin/categories")
+                          ? "underline font-semibold"
+                          : ""
+                      }`}
                     >
                       Categories
                     </Link>
 
                     <Link
                       href="/admin/reviews"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className={`block px-4 py-2 hover:bg-gray-100 ${
+                        isActive("/admin/reviews")
+                          ? "underline font-semibold"
+                          : ""
+                      }`}
                     >
                       Reviews
                     </Link>
 
                     <Link
                       href="/admin/orders"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className={`block px-4 py-2 hover:bg-gray-100 ${
+                        isActive("/admin/orders")
+                          ? "underline font-semibold"
+                          : ""
+                      }`}
                     >
                       Orders
                     </Link>
 
                     <Link
                       href="/admin/coupons"
-                      className="block px-4 py-2 hover:bg-gray-100"
+                      className={`block px-4 py-2 hover:bg-gray-100 ${
+                        isActive("/admin/coupons")
+                          ? "underline font-semibold"
+                          : ""
+                      }`}
                     >
                       Coupons
                     </Link>
@@ -185,7 +272,12 @@ export default function Header() {
 
           {/* Authentication */}
           {!isLoggedIn ? (
-            <Link href="/auth/login" className="text-black hover:underline">
+            <Link
+              href="/auth/login"
+              className={`text-black hover:underline ${
+                isActive("/auth/login") ? "underline font-semibold" : ""
+              }`}
+            >
               Login
             </Link>
           ) : (
@@ -242,33 +334,75 @@ export default function Header() {
             <p className="text-gray-600 font-medium">Welcome, {username}</p>
           )}
 
-          <Link href="/" onClick={closeMenu} className="block">
+          <Link
+            href="/"
+            onClick={closeMenu}
+            className={`block ${
+              isActive("/") ? "underline font-semibold" : ""
+            }`}
+          >
             Home
           </Link>
 
-          <Link href="/products" onClick={closeMenu} className="block">
+          <Link
+            href="/products"
+            onClick={closeMenu}
+            className={`block ${
+              isActive("/products") ? "underline font-semibold" : ""
+            }`}
+          >
             Products
           </Link>
 
-          <Link href="/cart" onClick={closeMenu} className="block">
+          <Link
+            href="/cart"
+            onClick={closeMenu}
+            className={`block ${
+              isActive("/cart") ? "underline font-semibold" : ""
+            }`}
+          >
             Cart
           </Link>
 
-          <Link href="/wishlist" onClick={closeMenu} className="block">
+          <Link
+            href="/wishlist"
+            onClick={closeMenu}
+            className={`block ${
+              isActive("/wishlist") ? "underline font-semibold" : ""
+            }`}
+          >
             Wishlist
           </Link>
 
           {isLoggedIn && (
             <>
-              <Link href="/orders" onClick={closeMenu} className="block">
+              <Link
+                href="/orders"
+                onClick={closeMenu}
+                className={`block ${
+                  isActive("/orders") ? "underline font-semibold" : ""
+                }`}
+              >
                 Orders
               </Link>
 
-              <Link href="/coupons" onClick={closeMenu} className="block">
+              <Link
+                href="/coupons"
+                onClick={closeMenu}
+                className={`block ${
+                  isActive("/coupons") ? "underline font-semibold" : ""
+                }`}
+              >
                 My Coupons
               </Link>
 
-              <Link href="/profile" onClick={closeMenu} className="block">
+              <Link
+                href="/profile"
+                onClick={closeMenu}
+                className={`block ${
+                  isActive("/profile") ? "underline font-semibold" : ""
+                }`}
+              >
                 Profile
               </Link>
 
@@ -282,7 +416,9 @@ export default function Header() {
                     <Link
                       href="/admin/users"
                       onClick={closeMenu}
-                      className="block font-semibold"
+                      className={`block font-semibold ${
+                        isActive("/admin/users") ? "underline" : ""
+                      }`}
                     >
                       Users Admin
                     </Link>
@@ -290,7 +426,9 @@ export default function Header() {
                     <Link
                       href="/admin/products"
                       onClick={closeMenu}
-                      className="block font-semibold"
+                      className={`block font-semibold ${
+                        isActive("/admin/products") ? "underline" : ""
+                      }`}
                     >
                       Products Admin
                     </Link>
@@ -298,7 +436,9 @@ export default function Header() {
                     <Link
                       href="/admin/categories"
                       onClick={closeMenu}
-                      className="block font-semibold"
+                      className={`block font-semibold ${
+                        isActive("/admin/categories") ? "underline" : ""
+                      }`}
                     >
                       Categories Admin
                     </Link>
@@ -306,7 +446,9 @@ export default function Header() {
                     <Link
                       href="/admin/reviews"
                       onClick={closeMenu}
-                      className="block font-semibold"
+                      className={`block font-semibold ${
+                        isActive("/admin/reviews") ? "underline" : ""
+                      }`}
                     >
                       Reviews Admin
                     </Link>
@@ -314,7 +456,9 @@ export default function Header() {
                     <Link
                       href="/admin/orders"
                       onClick={closeMenu}
-                      className="block font-semibold"
+                      className={`block font-semibold ${
+                        isActive("/admin/orders") ? "underline" : ""
+                      }`}
                     >
                       Orders Admin
                     </Link>
@@ -322,7 +466,9 @@ export default function Header() {
                     <Link
                       href="/admin/coupons"
                       onClick={closeMenu}
-                      className="block font-semibold"
+                      className={`block font-semibold ${
+                        isActive("/admin/coupons") ? "underline" : ""
+                      }`}
                     >
                       Coupons Admin
                     </Link>
@@ -335,7 +481,13 @@ export default function Header() {
           {/* Authentication */}
           <div className="mt-2 border-t pt-4">
             {!isLoggedIn ? (
-              <Link href="/auth/login" onClick={closeMenu} className="block">
+              <Link
+                href="/auth/login"
+                onClick={closeMenu}
+                className={`block ${
+                  isActive("/auth/login") ? "underline font-semibold" : ""
+                }`}
+              >
                 Login
               </Link>
             ) : (
