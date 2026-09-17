@@ -30,7 +30,9 @@ export default function CartPage() {
   const [cart, setCart] = useState<CartResponse | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [updatingProductId, setUpdatingProductId] = useState<string | null>(null);
+  const [updatingProductId, setUpdatingProductId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState("");
 
   const { showSnackbar } = useSnackbar();
@@ -78,7 +80,7 @@ export default function CartPage() {
 
   const totalItems = useMemo(
     () => displayItems.reduce((sum, item) => sum + item.quantity, 0),
-    [displayItems]
+    [displayItems],
   );
 
   const subtotal = useMemo(
@@ -86,9 +88,9 @@ export default function CartPage() {
       displayItems.reduce(
         (sum, item) =>
           sum + (item.product ? Number(item.product.price) * item.quantity : 0),
-        0
+        0,
       ),
-    [displayItems]
+    [displayItems],
   );
 
   const discount = useMemo(() => {
@@ -117,7 +119,7 @@ export default function CartPage() {
     } catch (err) {
       showSnackbar(
         err instanceof Error ? err.message : "Failed to update quantity.",
-        "error"
+        "error",
       );
     } finally {
       setUpdatingProductId(null);
@@ -133,7 +135,7 @@ export default function CartPage() {
     } catch (err) {
       showSnackbar(
         err instanceof Error ? err.message : "Failed to remove item.",
-        "error"
+        "error",
       );
     } finally {
       setUpdatingProductId(null);
@@ -148,7 +150,7 @@ export default function CartPage() {
     } catch (err) {
       showSnackbar(
         err instanceof Error ? err.message : "Failed to clear cart.",
-        "error"
+        "error",
       );
     }
   }
@@ -172,7 +174,7 @@ export default function CartPage() {
       setAppliedCoupon(null);
       showSnackbar(
         err instanceof Error ? err.message : "Invalid or expired coupon.",
-        "error"
+        "error",
       );
     } finally {
       setApplyingCoupon(false);
@@ -198,7 +200,11 @@ export default function CartPage() {
         unitPrice: item.product ? Number(item.product.price) : 0,
       }));
 
-      await api.createOrder(orderItems, total);
+      const order = await api.createOrder(orderItems, total);
+
+      if (appliedCoupon) {
+        await api.useCoupon(appliedCoupon.id);
+      }
 
       await api.clearCart();
       setCart((current) => (current ? { ...current, items: [] } : current));
@@ -209,7 +215,7 @@ export default function CartPage() {
     } catch (err) {
       showSnackbar(
         err instanceof Error ? err.message : "Failed to place order.",
-        "error"
+        "error",
       );
     }
   }

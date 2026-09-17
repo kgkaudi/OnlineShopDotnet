@@ -123,12 +123,19 @@ export interface Coupon {
 async function request<T>(
   path: string,
   options: RequestInit = {},
-  token?: string,
+  explicitToken?: string,
 ): Promise<T> {
+  // Always try to use the client token unless caller overrides it
+  const token = explicitToken ?? getClientToken() ?? undefined;
+
   const headers = new Headers(options.headers);
 
-  headers.set("Content-Type", "application/json");
+  // Ensure JSON content type unless caller overrides
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
 
+  // Auto‑attach Authorization header
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
@@ -139,17 +146,34 @@ async function request<T>(
     cache: "no-store",
   });
 
+  // Handle unauthorized
+  if (response.status === 401) {
+    logout(); // remove invalid token
+    throw new Error("Unauthorized. Please log in again.");
+  }
+
+  // Handle forbidden
+  if (response.status === 403) {
+    throw new Error(
+      "Forbidden. You do not have permission to perform this action.",
+    );
+  }
+
+  // Handle other errors
   if (!response.ok) {
-    const message = await response.text();
+    let message: string | null = null;
+
+    try {
+      message = await response.text();
+    } catch {
+      message = null;
+    }
 
     throw new Error(message || `Request failed with status ${response.status}`);
   }
 
-  /*
-   * Some successful endpoints may return an empty response.
-   */
+  // Handle empty responses
   const contentType = response.headers.get("content-type");
-
   if (!contentType?.includes("application/json")) {
     return undefined as T;
   }
@@ -642,6 +666,14 @@ export const api = {
   // Public validation
   validateCoupon: (code: string) =>
     request<Coupon>(`/coupons/validate/${encodeURIComponent(code.trim())}`),
+
+  // Usage of coupon
+  useCoupon: (id: string) =>
+    request<Coupon>(
+      `/coupons/${encodeURIComponent(id)}/use`,
+      { method: "POST" },
+      getClientToken() || undefined,
+    ),
 
   // Admin-only: get all coupons
   getCoupons: () =>

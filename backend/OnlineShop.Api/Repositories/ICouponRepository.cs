@@ -1,7 +1,5 @@
 using OnlineShop.Api.Models;
 
-namespace OnlineShop.Api.Repositories;
-
 public interface ICouponRepository
 {
     Task<Coupon?> GetByCodeAsync(string code);
@@ -9,5 +7,6 @@ public interface ICouponRepository
     Task<List<Coupon>> GetAllAsync();
     Task CreateAsync(Coupon coupon);
     Task<bool> UpdateAsync(Coupon coupon);
+    Task<bool> IncrementUsageAsync(string id);
     Task<bool> DeleteAsync(string id);
 }

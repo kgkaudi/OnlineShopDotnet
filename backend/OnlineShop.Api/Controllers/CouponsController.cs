@@ -129,4 +129,30 @@ public class CouponsController : ControllerBase
 
         return Ok(coupon);
     }
+
+    // ---------------------------------------------------------
+    // USE COUPON (User)
+    // ---------------------------------------------------------
+    [Authorize]
+    [HttpPost("{id}/use")]
+    public async Task<IActionResult> Use(string? id)
+    {
+        if (!IsValidObjectId(id))
+            return BadRequest("Invalid coupon id.");
+
+        var userId =
+            User.FindFirst("sub")?.Value ??
+            User.FindFirst("nameid")?.Value ??
+            User.FindFirst("id")?.Value ??
+            User.FindFirst("userId")?.Value;
+
+        if (string.IsNullOrWhiteSpace(userId))
+            return Unauthorized("User ID missing.");
+
+        var coupon = await _service.UseAsync(id!, userId);
+        if (coupon == null)
+            return BadRequest("Coupon cannot be used (invalid, expired, max usage reached, or not assigned to this user).");
+
+        return Ok(coupon);
+    }
 }

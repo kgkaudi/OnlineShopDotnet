@@ -1,7 +1,5 @@
 using OnlineShop.Api.Models;
 
-namespace OnlineShop.Api.Services;
-
 public interface ICouponService
 {
     Task<Coupon?> ValidateAsync(string code);
@@ -9,4 +7,5 @@ public interface ICouponService
     Task<List<Coupon>> GetMineAsync(string userId);
     Task<Coupon?> CreateAsync(Coupon coupon);
     Task<bool> DeleteAsync(string id);
+    Task<Coupon?> UseAsync(string id, string? userId = null);
 }

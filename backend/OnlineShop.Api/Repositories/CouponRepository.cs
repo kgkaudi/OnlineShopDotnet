@@ -121,6 +121,24 @@ public class CouponRepository : ICouponRepository
         return result.MatchedCount == 1 && result.ModifiedCount == 1;
     }
 
+    public async Task<bool> IncrementUsageAsync(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return false;
+
+        if (!ObjectId.TryParse(id, out _))
+            return false;
+
+        var update = Builders<Coupon>.Update.Inc(c => c.UsedCount, 1);
+
+        var result = await _coupons.UpdateOneAsync(
+            c => c.Id == id,
+            update
+        );
+
+        return result.MatchedCount == 1 && result.ModifiedCount == 1;
+    }
+
     // ---------------------------------------------------------
     // DELETE (Admin)
     // ---------------------------------------------------------

@@ -158,4 +158,41 @@ public class CouponService : ICouponService
 
         return await _repo.DeleteAsync(id);
     }
+
+    // ---------------------------------------------------------
+    // USE COUPON
+    // ---------------------------------------------------------
+
+    public async Task<Coupon?> UseAsync(string id, string? userId = null)
+    {
+        if (!IsValidObjectId(id))
+            return null;
+
+        var coupon = await _repo.GetByIdAsync(id);
+        if (coupon == null)
+            return null;
+
+        if (!coupon.Active)
+            return null;
+
+        if (coupon.Expiration <= DateTime.UtcNow)
+            return null;
+
+        if (coupon.UsedCount >= coupon.MaxUsage)
+            return null;
+
+        if (!string.IsNullOrWhiteSpace(coupon.UserId))
+        {
+            if (string.IsNullOrWhiteSpace(userId) || coupon.UserId != userId)
+                return null;
+        }
+
+        var success = await _repo.IncrementUsageAsync(id);
+        if (!success)
+            return null;
+
+        coupon.UsedCount += 1;
+        return coupon;
+    }
+
 }
