@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Container from "../../components/Container";
 import { api, type Product } from "@/src/lib/api";
 import { useSnackbar } from "@/src/context/SnackbarContext";
@@ -312,6 +312,161 @@ export default function ProductDetailsPage() {
   const outOfStock = product.stockQuantity === 0;
   const hasStockLimit = typeof product.stockQuantity === "number";
 
+  function Carousel({
+    productId,
+    productName,
+  }: {
+    productId: string;
+    productName: string;
+  }) {
+    const sampleImages = [
+      `https://i.pinimg.com/736x/be/46/20/be4620077e92408d7f5f615801fe17eb.jpg`,
+      `https://i.pinimg.com/1200x/ba/8a/3f/ba8a3f82284aacbd1ab415243f7d19d3.jpg`,
+      `https://i.pinimg.com/1200x/8c/7b/fe/8c7bfe27502914f48958c870d945f496.jpg`,
+    ];
+
+    const [index, setIndex] = useState(0);
+    const touchStart = useRef<number | null>(null);
+
+    function prev() {
+      setIndex((i) => (i === 0 ? sampleImages.length - 1 : i - 1));
+    }
+
+    function next() {
+      setIndex((i) => (i === sampleImages.length - 1 ? 0 : i + 1));
+    }
+
+    function handleTouchStart(e: React.TouchEvent) {
+      touchStart.current = e.touches[0].clientX;
+    }
+
+    function handleTouchEnd(e: React.TouchEvent) {
+      if (touchStart.current === null) return;
+      const diff = e.changedTouches[0].clientX - touchStart.current;
+
+      if (diff > 50) prev();
+      if (diff < -50) next();
+
+      touchStart.current = null;
+    }
+
+    return (
+      <div className="w-full">
+        {/* Main Image */}
+        <div
+          className="relative w-full aspect-square bg-gray-100 overflow-hidden group"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          <img
+            src={sampleImages[index]}
+            alt={productName}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+          />
+
+          {/* Prev */}
+          <button
+            onClick={prev}
+            className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white text-black rounded-full w-10 h-10 flex items-center justify-center shadow"
+          >
+            ‹
+          </button>
+
+          {/* Next */}
+          <button
+            onClick={next}
+            className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white text-black rounded-full w-10 h-10 flex items-center justify-center shadow"
+          >
+            ›
+          </button>
+
+          {/* Dots */}
+          <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+            {sampleImages.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setIndex(i)}
+                className={`w-3 h-3 rounded-full ${
+                  i === index ? "bg-black" : "bg-white border"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Thumbnails */}
+        <div className="flex gap-3 mt-4 justify-center">
+          {sampleImages.map((img, i) => (
+            <button
+              key={i}
+              onClick={() => setIndex(i)}
+              className={`border rounded-lg overflow-hidden w-20 h-20 ${
+                i === index ? "ring-2 ring-black" : ""
+              }`}
+            >
+              <img src={img} alt="" className="object-cover w-full h-full" />
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function RecommendedProducts({
+    currentProductId,
+  }: {
+    currentProductId: string;
+  }) {
+    const [items, setItems] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      api
+        .getProducts()
+        .then((all) => {
+          const filtered = all
+            .filter((p) => p.id !== currentProductId)
+            .slice(0, 4);
+          setItems(filtered);
+        })
+        .finally(() => setLoading(false));
+    }, [currentProductId]);
+
+    if (loading) {
+      return <p className="text-gray-600">Loading recommendations...</p>;
+    }
+
+    if (items.length === 0) {
+      return <p className="text-gray-600">No recommendations available.</p>;
+    }
+
+    return (
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        {items.map((item) => (
+          <Link
+            key={item.id}
+            href={`/products/${item.id}`}
+            className="border rounded-xl p-4 bg-white shadow-sm hover:shadow-md transition block"
+          >
+            <h3 className="font-semibold text-lg">{item.name}</h3>
+
+            <p className="text-gray-600 mt-1 line-clamp-2">
+              {item.description ?? "No description available."}
+            </p>
+
+            <p className="text-black font-bold mt-3">
+              €{item.price.toFixed(2)}
+            </p>
+
+            <button className="mt-4 w-full bg-black text-white py-2 rounded">
+              View Product
+            </button>
+          </Link>
+        ))}
+      </div>
+    );
+  }
+
   // -----------------------------
   // MAIN PAGE
   // -----------------------------
@@ -327,14 +482,9 @@ export default function ProductDetailsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
-        {/* IMAGE */}
+        {/* IMAGE CAROUSEL */}
         <div className="bg-white border rounded-2xl overflow-hidden shadow-sm">
-          <div className="aspect-square bg-gray-100 flex items-center justify-center">
-            <div className="text-center px-8">
-              <div className="text-8xl mb-5">🛍️</div>
-              <p className="text-sm text-gray-500">Product image</p>
-            </div>
-          </div>
+          <Carousel productId={product.id} productName={product.name} />
         </div>
 
         {/* DETAILS */}
@@ -551,6 +701,15 @@ export default function ProductDetailsPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ----------------------------- */}
+      {/* YOU MAY ALSO LIKE */}
+      {/* ----------------------------- */}
+      <div className="mt-20">
+        <h2 className="text-2xl font-bold mb-6">You may also like</h2>
+
+        <RecommendedProducts currentProductId={product.id} />
       </div>
     </Container>
   );
