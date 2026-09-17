@@ -9,8 +9,29 @@ export default function OrdersAdminPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getAllOrders()
-      .then(setOrders)
+    api
+      .getAllOrders()
+      .then(async (orders) => {
+        // Fetch user profiles for each order
+        const enriched = await Promise.all(
+          orders.map(async (order) => {
+            try {
+              const profile = await api.getUserProfile(order.userId);
+              return {
+                ...order,
+                userFullName: profile.fullName ?? profile.email,
+              };
+            } catch {
+              return {
+                ...order,
+                userFullName: order.userId, // fallback
+              };
+            }
+          }),
+        );
+
+        setOrders(enriched);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -60,9 +81,7 @@ export default function OrdersAdminPage() {
             <p className="text-gray-600">
               User: {order.userFullName ?? order.userId}
             </p>
-            <p className="text-gray-600">
-              Total: ${order.total.toFixed(2)}
-            </p>
+            <p className="text-gray-600">Total: ${order.total.toFixed(2)}</p>
             <p className="text-gray-600">Status: {order.status}</p>
             <p className="text-gray-600">
               Created: {new Date(order.createdAt).toLocaleString()}
@@ -82,7 +101,7 @@ export default function OrdersAdminPage() {
                   if (confirm("Delete this order?")) {
                     api.deleteOrder(order.id).then(() => {
                       setOrders((prev) =>
-                        prev.filter((o) => o.id !== order.id)
+                        prev.filter((o) => o.id !== order.id),
                       );
                     });
                   }
@@ -119,9 +138,7 @@ export default function OrdersAdminPage() {
                     {order.userFullName ?? order.userId}
                   </td>
 
-                  <td className="px-4 py-4">
-                    ${order.total.toFixed(2)}
-                  </td>
+                  <td className="px-4 py-4">${order.total.toFixed(2)}</td>
 
                   <td className="px-4 py-4">{order.status}</td>
 
@@ -144,7 +161,7 @@ export default function OrdersAdminPage() {
                           if (confirm("Delete this order?")) {
                             api.deleteOrder(order.id).then(() => {
                               setOrders((prev) =>
-                                prev.filter((o) => o.id !== order.id)
+                                prev.filter((o) => o.id !== order.id),
                               );
                             });
                           }
