@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { AdminUser } from "@/src/lib/api";
 import AdminUserRow from "./AdminUserRow";
 import AdminUsersError from "./AdminUsersError";
+import DeleteUserModal from "./DeleteUserModal";
 
 interface Props {
   users: AdminUser[];
@@ -21,6 +23,9 @@ export default function AdminUsersTable({
   onToggleAdmin,
   onDelete,
 }: Props) {
+
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+
   return (
     <>
       {error && <AdminUsersError message={error} />}
@@ -42,29 +47,38 @@ export default function AdminUsersTable({
             <tbody>
               {users.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-gray-500"
-                  >
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     No users found.
                   </td>
                 </tr>
               ) : (
                 users.map((user) => (
-                  <AdminUserRow
-                    key={user.id}
-                    user={user}
-                    updatingUserId={updatingUserId}
-                    deletingUserId={deletingUserId}
-                    onToggleAdmin={onToggleAdmin}
-                    onDelete={onDelete}
-                  />
+                  <tr key={user.id} className="border-b last:border-b-0">
+                    <AdminUserRow
+                      user={user}
+                      updatingUserId={updatingUserId}
+                      deletingUserId={deletingUserId}
+                      onToggleAdmin={onToggleAdmin}
+                      onDeleteRequest={(u) => setSelectedUser(u)}
+                    />
+                  </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {selectedUser && (
+        <DeleteUserModal
+          userName={selectedUser.fullName ?? selectedUser.email}
+          onConfirm={() => {
+            onDelete(selectedUser);
+            setSelectedUser(null);
+          }}
+          onCancel={() => setSelectedUser(null)}
+        />
+      )}
     </>
   );
 }

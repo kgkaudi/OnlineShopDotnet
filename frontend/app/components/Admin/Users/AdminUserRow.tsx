@@ -8,7 +8,7 @@ interface Props {
   updatingUserId: string | null;
   deletingUserId: string | null;
   onToggleAdmin: (user: AdminUser) => void;
-  onDelete: (user: AdminUser) => void;
+  onDeleteRequest: (user: AdminUser) => void;
 }
 
 export default function AdminUserRow({
@@ -16,8 +16,9 @@ export default function AdminUserRow({
   updatingUserId,
   deletingUserId,
   onToggleAdmin,
-  onDelete,
+  onDeleteRequest,
 }: Props) {
+
   const hasAdminRole =
     user.roles?.some((role) => role.trim().toLowerCase() === "admin") ?? false;
 
@@ -25,12 +26,10 @@ export default function AdminUserRow({
   const isCurrentUser = currentUserId === user.id;
 
   return (
-    <tr className="border-b last:border-b-0">
+    <>
       <td className="px-4 py-4">
         <div className="font-medium">{user.fullName || "Unnamed user"}</div>
-        {isCurrentUser && (
-          <span className="text-xs text-gray-500">You</span>
-        )}
+        {isCurrentUser && <span className="text-xs text-gray-500">You</span>}
       </td>
 
       <td className="px-4 py-4">{user.email}</td>
@@ -38,10 +37,7 @@ export default function AdminUserRow({
       <td className="px-4 py-4">
         <div className="flex flex-wrap gap-2">
           {user.roles?.map((role) => (
-            <span
-              key={role}
-              className="rounded-full bg-gray-100 px-2 py-1 text-xs"
-            >
+            <span key={role} className="rounded-full bg-gray-100 px-2 py-1 text-xs">
               {role}
             </span>
           ))}
@@ -57,9 +53,7 @@ export default function AdminUserRow({
       </td>
 
       <td className="px-4 py-4">
-        {user.createdAt
-          ? new Date(user.createdAt).toLocaleDateString()
-          : "-"}
+        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "-"}
       </td>
 
       <td className="px-4 py-4">
@@ -80,13 +74,13 @@ export default function AdminUserRow({
           <button
             type="button"
             disabled={deletingUserId === user.id || isCurrentUser}
-            onClick={() => onDelete(user)}
+            onClick={() => onDeleteRequest(user)}
             className="px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {deletingUserId === user.id ? "Deleting..." : "Delete"}
           </button>
         </div>
       </td>
-    </tr>
+    </>
   );
 }
