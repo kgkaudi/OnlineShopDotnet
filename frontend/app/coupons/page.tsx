@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Container from "../components/Container";
+
+import CouponsGrid from "../components/Coupons/CouponsGrid";
+import EmptyCoupons from "../components/Coupons/EmptyCoupons";
+import LoadingCoupons from "../components/Coupons/LoadingCoupons";
+import CouponsError from "../components/Coupons/CouponsError";
+
 import { api, Coupon } from "@/src/lib/api";
 import { useSnackbar } from "@/src/context/SnackbarContext";
 
@@ -15,7 +21,7 @@ export default function CouponsPage() {
   async function loadCoupons() {
     try {
       setError("");
-      const list = await api.getMyCoupons(); // ✔ correct endpoint
+      const list = await api.getMyCoupons();
       setCoupons(list);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load coupons.");
@@ -28,69 +34,20 @@ export default function CouponsPage() {
     loadCoupons();
   }, []);
 
-  if (loading) {
-    return (
-      <Container>
-        <h1 className="text-2xl font-bold mb-6">Available Coupons</h1>
-        <p className="text-gray-600">Loading coupons...</p>
-      </Container>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container>
-        <h1 className="text-2xl font-bold mb-6">Available Coupons</h1>
-        <p className="text-red-600 bg-red-100 px-3 py-2 rounded">{error}</p>
-      </Container>
-    );
-  }
-
   return (
     <Container>
       <h1 className="text-2xl font-bold mb-6">Available Coupons</h1>
 
-      <div className="border rounded-lg bg-white p-5 shadow-sm">
-        {coupons.length === 0 ? (
-          <p className="text-gray-600">No coupons available at the moment.</p>
-        ) : (
-          <div className="space-y-4">
-            {coupons.map((coupon) => (
-              <div
-                key={coupon.id}
-                className="border rounded p-4 flex items-center justify-between"
-              >
-                <div>
-                  <p className="font-semibold">{coupon.code}</p>
+      {loading && <LoadingCoupons />}
+      {error && <CouponsError message={error} />}
 
-                  <p className="text-sm text-gray-600">
-                    {coupon.type === "percentage"
-                      ? `${coupon.value}% off`
-                      : `€${coupon.value} off`}
-                  </p>
+      {!loading && !error && coupons.length === 0 && <EmptyCoupons />}
 
-                  <p className="text-xs text-gray-500 mt-1">
-                    Expires:{" "}
-                    {coupon.expiration
-                      ? new Date(coupon.expiration).toLocaleDateString()
-                      : "Unknown"}
-                  </p>
-
-                  <p className="text-xs text-gray-500">
-                    Usage: {coupon.usedCount}/{coupon.maxUsage}
-                  </p>
-
-                  {!coupon.active && (
-                    <p className="text-xs text-red-600 mt-1">
-                      This coupon is inactive.
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {!loading && !error && coupons.length > 0 && (
+        <div className="border rounded-lg bg-white p-5 shadow-sm">
+          <CouponsGrid coupons={coupons} />
+        </div>
+      )}
     </Container>
   );
 }
