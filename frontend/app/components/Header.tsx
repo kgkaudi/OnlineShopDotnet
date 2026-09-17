@@ -165,6 +165,13 @@ export default function Header() {
                     </Link>
 
                     <Link
+                      href="/admin/orders"
+                      className="block px-4 py-2 hover:bg-gray-100"
+                    >
+                      Orders
+                    </Link>
+
+                    <Link
                       href="/admin/coupons"
                       className="block px-4 py-2 hover:bg-gray-100"
                     >
@@ -302,6 +309,14 @@ export default function Header() {
                       className="block font-semibold"
                     >
                       Reviews Admin
+                    </Link>
+
+                    <Link
+                      href="/admin/orders"
+                      onClick={closeMenu}
+                      className="block font-semibold"
+                    >
+                      Orders Admin
                     </Link>
 
                     <Link

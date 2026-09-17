@@ -503,22 +503,37 @@ export const api = {
   getOrders: () =>
     request<Order[]>("/orders/me", {}, getClientToken() || undefined),
 
-  cancelOrder: (id: string) =>
+  getAllOrders: () =>
+    request<Order[]>("/orders", {}, getClientToken() || undefined),
+
+  getOrderById: (id: string) =>
     request<Order>(
-      `/orders/${encodeURIComponent(id)}/cancel`,
-      {
-        method: "POST",
-      },
+      `/orders/${encodeURIComponent(id)}`,
+      {},
       getClientToken() || undefined,
     ),
 
-  updateOrder: (id: string, data: Order) =>
+  cancelOrder: (id: string) =>
+    request<Order>(
+      `/orders/${encodeURIComponent(id)}/cancel`,
+      { method: "POST" },
+      getClientToken() || undefined,
+    ),
+
+  updateOrder: (id: string, data: Partial<Order>) =>
     request<Order>(
       `/orders/${encodeURIComponent(id)}`,
       {
         method: "PUT",
         body: JSON.stringify(data),
       },
+      getClientToken() || undefined,
+    ),
+
+  deleteOrder: (id: string) =>
+    request<{ message: string }>(
+      `/orders/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
       getClientToken() || undefined,
     ),
 
