@@ -91,26 +91,24 @@ public static class SeedData
 
     private static async Task SeedInventory(IMongoDatabase db)
     {
-        var products = db.GetCollection<Product>("Products")
-                         .Find(FilterDefinition<Product>.Empty)
-                         .ToList();
+        var events = db.GetCollection<InventoryEvent>("InventoryEvent");
 
-        if (products.Count == 0)
+        if (await events.CountDocumentsAsync(FilterDefinition<InventoryEvent>.Empty) > 0)
             return;
 
         var productCollection = db.GetCollection<Product>("Products");
+        var products = productCollection
+            .Find(FilterDefinition<Product>.Empty)
+            .ToList();
+
+        if (products.Count == 0)
+            return;
 
         foreach (var p in products)
         {
             var update = Builders<Product>.Update.Set(x => x.StockQuantity, 50);
             await productCollection.UpdateOneAsync(x => x.Id == p.Id, update);
-        }
 
-        // Optional: seed inventory events
-        var events = db.GetCollection<InventoryEvent>("InventoryEvent");
-
-        foreach (var p in products)
-        {
             await events.InsertOneAsync(new InventoryEvent
             {
                 Id = ObjectId.GenerateNewId().ToString(),

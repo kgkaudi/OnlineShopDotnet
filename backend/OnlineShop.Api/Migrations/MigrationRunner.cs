@@ -23,16 +23,17 @@ public class MigrationRunner
         var existing = await _db.ListCollectionNames().ToListAsync();
         var required = new[]
         {
-            "Users",
-            "Products",
-            "Inventory",
-            "Category",
-            "Coupon",
-            "Order",
-            "Cart",
-            "Wishlist",
-            "Review"
-        };
+        "Users",
+        "Products",
+        "InventoryEvent",
+        "Category",
+        "Coupons",
+        "Order",
+        "Carts",
+        "Wishlist",
+        "Reviews",
+        "InvalidTokens"
+    };
 
         foreach (var name in required)
         {
