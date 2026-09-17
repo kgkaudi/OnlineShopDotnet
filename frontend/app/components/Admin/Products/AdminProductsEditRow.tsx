@@ -25,8 +25,8 @@ export default function AdminProductsEditRow({
   onCancel,
 }: Props) {
   return (
-    <tr className="border-b last:border-b-0 bg-gray-50">
-      <td className="px-4 py-4 align-top">
+    <>
+      <td className="px-4 py-4 align-top bg-gray-50">
         <input
           type="text"
           value={editingForm.name}
@@ -36,7 +36,7 @@ export default function AdminProductsEditRow({
         />
       </td>
 
-      <td className="px-4 py-4 align-top">
+      <td className="px-4 py-4 align-top bg-gray-50">
         <textarea
           value={editingForm.description}
           onChange={(e) => onChange("description", e.target.value)}
@@ -46,7 +46,7 @@ export default function AdminProductsEditRow({
         />
       </td>
 
-      <td className="px-4 py-4 align-top">
+      <td className="px-4 py-4 align-top bg-gray-50">
         <input
           type="number"
           min="0.01"
@@ -58,7 +58,7 @@ export default function AdminProductsEditRow({
         />
       </td>
 
-      <td className="px-4 py-4 align-top">
+      <td className="px-4 py-4 align-top bg-gray-50">
         <input
           type="number"
           min="0"
@@ -70,7 +70,7 @@ export default function AdminProductsEditRow({
         />
       </td>
 
-      <td className="px-4 py-4 align-top">
+      <td className="px-4 py-4 align-top bg-gray-50">
         <CategoryDropdown
           value={editingForm.categoryId}
           categories={categories}
@@ -79,7 +79,7 @@ export default function AdminProductsEditRow({
         />
       </td>
 
-      <td className="px-4 py-4 align-top">
+      <td className="px-4 py-4 align-top bg-gray-50">
         <div className="flex flex-col items-end gap-2">
           <button
             type="button"
@@ -100,6 +100,6 @@ export default function AdminProductsEditRow({
           </button>
         </div>
       </td>
-    </tr>
+    </>
   );
 }

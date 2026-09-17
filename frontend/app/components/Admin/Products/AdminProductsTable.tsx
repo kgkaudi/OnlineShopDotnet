@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Product, Category } from "@/src/lib/api";
 import AdminProductsEditRow from "./AdminProductsEditRow";
 import AdminProductRow from "./AdminProductRow";
+import DeleteProductModal from "./DeleteProductModal";
 
 interface Props {
   products: Product[];
@@ -14,7 +16,10 @@ interface Props {
   onEdit: (product: Product) => void;
   onCancelEdit: () => void;
   onSaveEdit: (product: Product) => void;
-  onDelete: (product: Product) => void;
+
+  // FIX: replace onDelete with onDeleteRequest
+  onDeleteRequest: (product: Product) => void;
+
   onChangeEditField: (field: string, value: string) => void;
   getCategoryName: (id?: string | null) => string;
 }
@@ -29,10 +34,16 @@ export default function AdminProductsTable({
   onEdit,
   onCancelEdit,
   onSaveEdit,
-  onDelete,
+
+  // FIX
+  onDeleteRequest,
+
   onChangeEditField,
   getCategoryName,
 }: Props) {
+
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
@@ -69,31 +80,36 @@ export default function AdminProductsTable({
 
                   if (isEditing) {
                     return (
-                      <AdminProductsEditRow
-                        key={product.id}
-                        product={product}
-                        editingForm={editingForm}
-                        categories={categories}
-                        isUpdating={isUpdating}
-                        isDeleting={isDeleting}
-                        onChange={onChangeEditField}
-                        onSave={() => onSaveEdit(product)}
-                        onCancel={onCancelEdit}
-                      />
+                      <tr key={product.id} className="border-b last:border-b-0">
+                        <AdminProductsEditRow
+                          product={product}
+                          editingForm={editingForm}
+                          categories={categories}
+                          isUpdating={isUpdating}
+                          isDeleting={isDeleting}
+                          onChange={onChangeEditField}
+                          onSave={() => onSaveEdit(product)}
+                          onCancel={onCancelEdit}
+                        />
+                      </tr>
                     );
                   }
 
                   return (
-                    <AdminProductRow
-                      key={product.id}
-                      product={product}
-                      isDeleting={isDeleting}
-                      isUpdating={isUpdating}
-                      editingProductId={editingProductId}
-                      onEdit={onEdit}
-                      onDelete={onDelete}
-                      getCategoryName={getCategoryName}
-                    />
+                    <tr key={product.id} className="border-b last:border-b-0">
+                      <AdminProductRow
+                        product={product}
+                        isDeleting={isDeleting}
+                        isUpdating={isUpdating}
+                        editingProductId={editingProductId}
+                        onEdit={onEdit}
+
+                        // FIX: use onDeleteRequest
+                        onDeleteRequest={(p) => setSelectedProduct(p)}
+
+                        getCategoryName={getCategoryName}
+                      />
+                    </tr>
                   );
                 })
               )}
@@ -101,6 +117,18 @@ export default function AdminProductsTable({
           </table>
         </div>
       </div>
+
+      {selectedProduct && (
+        <DeleteProductModal
+          productName={selectedProduct.name}
+          onConfirm={() => {
+            // FIX: call onDeleteRequest instead of onDelete
+            onDeleteRequest(selectedProduct);
+            setSelectedProduct(null);
+          }}
+          onCancel={() => setSelectedProduct(null)}
+        />
+      )}
     </section>
   );
 }

@@ -3,12 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import {
-  api,
-  getClientUserId,
-  Category,
-  Product,
-} from "@/src/lib/api";
+import { api, getClientUserId, Category, Product } from "@/src/lib/api";
 
 import { useAuthStore } from "@/src/store/authStore";
 
@@ -18,6 +13,7 @@ import AdminProductsSuccess from "../../components/Admin/Products/AdminProductsS
 import AdminProductsCreateForm from "../../components/Admin/Products/AdminProductsCreateForm";
 import AdminProductsTable from "../../components/Admin/Products/AdminProductsTable";
 import LoadingAdminProducts from "../../components/Admin/Products/LoadingAdminProducts";
+import DeleteProductModal from "@/app/components/Admin/Products/DeleteProductModal";
 
 const emptyForm = {
   name: "",
@@ -41,13 +37,19 @@ export default function AdminProductsPage() {
   const [editingForm, setEditingForm] = useState(emptyForm);
 
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [updatingProductId, setUpdatingProductId] = useState<string | null>(null);
-  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const [updatingProductId, setUpdatingProductId] = useState<string | null>(
+    null,
+  );
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(
+    null,
+  );
 
   const [creating, setCreating] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // -----------------------------------------------------
   // LOAD ADMIN PAGE
@@ -90,7 +92,9 @@ export default function AdminProductsPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load products.");
+          setError(
+            err instanceof Error ? err.message : "Failed to load products.",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -175,7 +179,9 @@ export default function AdminProductsPage() {
 
       setSuccess(`Product "${created.name}" created successfully.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create product.");
+      setError(
+        err instanceof Error ? err.message : "Failed to create product.",
+      );
     } finally {
       setCreating(false);
     }
@@ -233,7 +239,7 @@ export default function AdminProductsPage() {
       });
 
       setProducts((prev) =>
-        prev.map((p) => (p.id === product.id ? updated : p))
+        prev.map((p) => (p.id === product.id ? updated : p)),
       );
 
       setEditingProductId(null);
@@ -241,7 +247,9 @@ export default function AdminProductsPage() {
 
       setSuccess(`Product "${updated.name}" updated successfully.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update product.");
+      setError(
+        err instanceof Error ? err.message : "Failed to update product.",
+      );
     } finally {
       setUpdatingProductId(null);
     }
@@ -251,11 +259,6 @@ export default function AdminProductsPage() {
   // DELETE PRODUCT
   // -----------------------------------------------------
   async function handleDeleteProduct(product: Product) {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${product.name}"?`
-    );
-    if (!confirmed) return;
-
     setDeletingProductId(product.id);
     setError(null);
     setSuccess(null);
@@ -272,7 +275,9 @@ export default function AdminProductsPage() {
 
       setSuccess(`Product "${product.name}" deleted successfully.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete product.");
+      setError(
+        err instanceof Error ? err.message : "Failed to delete product.",
+      );
     } finally {
       setDeletingProductId(null);
     }
@@ -325,10 +330,21 @@ export default function AdminProductsPage() {
         onEdit={startEditingProduct}
         onCancelEdit={cancelEditingProduct}
         onSaveEdit={handleUpdateProduct}
-        onDelete={handleDeleteProduct}
+        onDeleteRequest={(product) => setSelectedProduct(product)}
         onChangeEditField={updateEditingField}
         getCategoryName={getCategoryName}
       />
+
+      {selectedProduct && (
+        <DeleteProductModal
+          productName={selectedProduct.name}
+          onConfirm={() => {
+            handleDeleteProduct(selectedProduct);
+            setSelectedProduct(null);
+          }}
+          onCancel={() => setSelectedProduct(null)}
+        />
+      )}
     </main>
   );
 }

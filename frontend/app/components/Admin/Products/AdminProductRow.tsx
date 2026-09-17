@@ -8,7 +8,7 @@ interface Props {
   isUpdating: boolean;
   editingProductId: string | null;
   onEdit: (product: Product) => void;
-  onDelete: (product: Product) => void;
+  onDeleteRequest: (product: Product) => void;
   getCategoryName: (id?: string | null) => string;
 }
 
@@ -18,11 +18,11 @@ export default function AdminProductRow({
   isUpdating,
   editingProductId,
   onEdit,
-  onDelete,
+  onDeleteRequest,
   getCategoryName,
 }: Props) {
   return (
-    <tr className="border-b last:border-b-0">
+    <>
       <td className="px-4 py-4 font-medium">{product.name}</td>
 
       <td className="px-4 py-4 max-w-xs">
@@ -51,13 +51,13 @@ export default function AdminProductRow({
           <button
             type="button"
             disabled={isDeleting || isUpdating}
-            onClick={() => onDelete(product)}
+            onClick={() => onDeleteRequest(product)}
             className="px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
           >
             {isDeleting ? "Deleting..." : "Delete"}
           </button>
         </div>
       </td>
-    </tr>
+    </>
   );
 }
