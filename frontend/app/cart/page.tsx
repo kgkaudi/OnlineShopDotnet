@@ -222,6 +222,39 @@ export default function CartPage() {
     );
   }
 
+  async function handleCheckout() {
+    try {
+      if (!cart || displayItems.length === 0) {
+        showSnackbar("Your cart is empty.", "error");
+        return;
+      }
+
+      // Convert cart items → order items
+      const orderItems = displayItems.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.product ? Number(item.product.price) : 0,
+      }));
+
+      // Create order
+      const order = await api.createOrder(orderItems, total);
+
+      // Clear cart
+      await api.clearCart();
+      setCart((current) => (current ? { ...current, items: [] } : current));
+
+      showSnackbar("Order placed successfully!", "success");
+
+      // Redirect
+      window.location.href = "/orders";
+    } catch (err) {
+      showSnackbar(
+        err instanceof Error ? err.message : "Failed to place order.",
+        "error",
+      );
+    }
+  }
+
   return (
     <Container>
       <div className="flex items-center justify-between mb-6">
@@ -399,12 +432,10 @@ export default function CartPage() {
 
           {/* CHECKOUT */}
           <button
-            onClick={() =>
-              showSnackbar("Checkout is not implemented yet.", "success")
-            }
+            onClick={handleCheckout}
             className="mt-5 w-full bg-black text-white py-3 rounded hover:bg-gray-800"
           >
-            Checkout
+            Place Order
           </button>
         </aside>
       </div>

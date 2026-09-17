@@ -513,6 +513,30 @@ export const api = {
       getClientToken() || undefined,
     ),
 
+  createOrder: (items: OrderItem[], total: number) => {
+    const userId = getClientUserId();
+
+    if (!userId) {
+      throw new Error("User ID missing — you must be logged in.");
+    }
+
+    return request<Order>(
+      "/orders",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          id: generateObjectId(),
+          userId,
+          items,
+          total,
+          status: "Pending",
+          createdAt: new Date().toISOString(),
+        }),
+      },
+      getClientToken() || undefined,
+    );
+  },
+
   cancelOrder: (id: string) =>
     request<Order>(
       `/orders/${encodeURIComponent(id)}/cancel`,
