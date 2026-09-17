@@ -11,6 +11,7 @@ import AdminCouponsLoading from "../../components/Admin/Coupons/AdminCouponsLoad
 import AdminCouponsError from "../../components/Admin/Coupons/AdminCouponsError";
 import AdminCouponsCreateForm from "../../components/Admin/Coupons/AdminCouponsCreateForm";
 import AdminCouponsList from "../../components/Admin/Coupons/AdminCouponsList";
+import DeleteCouponModal from "../../components/Admin/Coupons/DeleteCouponModal";
 
 export default function AdminCouponsPage() {
   const router = useRouter();
@@ -28,6 +29,9 @@ export default function AdminCouponsPage() {
   const [expiration, setExpiration] = useState("");
   const [maxUsage, setMaxUsage] = useState<number>(1);
   const [userId, setUserId] = useState<string>("");
+
+  const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const isAdmin = clientIsAdmin();
 
@@ -116,16 +120,21 @@ export default function AdminCouponsPage() {
     }
   }
 
-  async function handleDeleteCoupon(id: string) {
+  async function handleDeleteCoupon(coupon: Coupon) {
+    setDeletingId(coupon.id);
+
     try {
-      await api.deleteCoupon(id);
-      setCoupons((prev) => prev.filter((c) => c.id !== id));
+      await api.deleteCoupon(coupon.id);
+      setCoupons((prev) => prev.filter((c) => c.id !== coupon.id));
       showSnackbar("Coupon deleted.", "success");
     } catch (err) {
       showSnackbar(
         err instanceof Error ? err.message : "Failed to delete coupon.",
         "error"
       );
+    } finally {
+      setDeletingId(null);
+      setSelectedCoupon(null);
     }
   }
 
@@ -169,8 +178,19 @@ export default function AdminCouponsPage() {
       <AdminCouponsList
         coupons={coupons}
         users={users}
-        onDelete={handleDeleteCoupon}
+        deletingId={deletingId}
+        onDeleteRequest={(coupon) => setSelectedCoupon(coupon)}
       />
+
+      {selectedCoupon && (
+        <DeleteCouponModal
+          couponCode={selectedCoupon.code}
+          couponValue={selectedCoupon.value}
+          couponType={selectedCoupon.type}
+          onConfirm={() => handleDeleteCoupon(selectedCoupon)}
+          onCancel={() => setSelectedCoupon(null)}
+        />
+      )}
     </Container>
   );
 }

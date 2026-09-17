@@ -6,10 +6,18 @@ import AdminCouponRow from "./AdminCouponRow";
 interface Props {
   coupons: Coupon[];
   users: UserProfile[];
-  onDelete: (id: string) => void;
+  deletingId: string | null;
+
+  // NEW: modal-based delete
+  onDeleteRequest: (coupon: Coupon) => void;
 }
 
-export default function AdminCouponsList({ coupons, users, onDelete }: Props) {
+export default function AdminCouponsList({
+  coupons,
+  users,
+  deletingId,
+  onDeleteRequest,
+}: Props) {
   if (coupons.length === 0) {
     return <p className="text-gray-600">No coupons created yet.</p>;
   }
@@ -21,7 +29,8 @@ export default function AdminCouponsList({ coupons, users, onDelete }: Props) {
           key={coupon.id}
           coupon={coupon}
           users={users}
-          onDelete={onDelete}
+          deletingId={deletingId}
+          onDeleteRequest={onDeleteRequest}
         />
       ))}
     </div>
