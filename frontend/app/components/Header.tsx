@@ -14,6 +14,7 @@ export default function Header() {
 
   const isLoggedInStore = useAuthStore((state) => state.isLoggedIn);
   const setLoggedIn = useAuthStore((state) => state.setLoggedIn);
+  const pathname = usePathname();
 
   const [hydrated, setHydrated] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -84,7 +85,6 @@ export default function Header() {
     setMenuOpen(false);
   }
 
-  const pathname = usePathname();
   function isActive(path: string) {
     return pathname === path;
   }
