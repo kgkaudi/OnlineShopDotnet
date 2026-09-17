@@ -7,6 +7,7 @@ import { useSnackbar } from "@/src/context/SnackbarContext";
 import OrdersGrid from "../components/Orders/OrdersGrid";
 import OrderFilterBar from "../components/Orders/OrderFilterBar";
 import EmptyOrders from "../components/Orders/EmptyOrders";
+import CancelOrderModal from "../components/Orders/CancelOrderModal";
 
 function formatDate(date: string) {
   const parsed = new Date(date);
@@ -47,7 +48,9 @@ function getStatusClasses(status: string) {
 }
 
 function getProductName(productId: string, products: Product[]) {
-  return products.find((p) => p.id === productId)?.name ?? `Product ${productId}`;
+  return (
+    products.find((p) => p.id === productId)?.name ?? `Product ${productId}`
+  );
 }
 
 function calculateItemTotal(item: OrderItem) {
@@ -63,6 +66,9 @@ export default function OrdersPage() {
 
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
+
+  // FIXED: missing state
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const { showSnackbar } = useSnackbar();
 
@@ -101,15 +107,15 @@ export default function OrdersPage() {
     () =>
       [...orders].sort(
         (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       ),
-    [orders]
+    [orders],
   );
 
   const filteredOrders = useMemo(() => {
     if (statusFilter === "all") return sortedOrders;
     return sortedOrders.filter(
-      (o) => o.status.toLowerCase() === statusFilter.toLowerCase()
+      (o) => o.status.toLowerCase() === statusFilter.toLowerCase(),
     );
   }, [sortedOrders, statusFilter]);
 
@@ -130,37 +136,39 @@ export default function OrdersPage() {
     } catch (err) {
       showSnackbar(
         err instanceof Error ? err.message : "Failed to reorder items.",
-        "error"
+        "error",
       );
     } finally {
       setReorderingId(null);
     }
   }
 
-  async function handleCancel(order: Order) {
-    const confirmed = window.confirm(
-      `Cancel order #${order.id}? This cannot be undone.`
-    );
+  // FIXED: modal-based cancel flow
+  function requestCancel(order: Order) {
+    setSelectedOrder(order);
+  }
 
-    if (!confirmed) return;
+  async function confirmCancel() {
+    if (!selectedOrder) return;
 
-    setCancelingId(order.id);
+    setCancelingId(selectedOrder.id);
 
     try {
-      const updated = await api.cancelOrder(order.id);
+      const updated = await api.cancelOrder(selectedOrder.id);
 
       setOrders((current) =>
-        current.map((o) => (o.id === order.id ? updated : o))
+        current.map((o) => (o.id === selectedOrder.id ? updated : o)),
       );
 
       showSnackbar("Order cancelled.", "success");
     } catch (err) {
       showSnackbar(
         err instanceof Error ? err.message : "Failed to cancel order.",
-        "error"
+        "error",
       );
     } finally {
       setCancelingId(null);
+      setSelectedOrder(null);
     }
   }
 
@@ -209,12 +217,20 @@ export default function OrdersPage() {
           reorderingId={reorderingId}
           cancelingId={cancelingId}
           onReorder={handleReorder}
-          onCancel={handleCancel}
+          onCancel={requestCancel}
           formatDate={formatDate}
           formatPrice={formatPrice}
           getStatusClasses={getStatusClasses}
           getProductName={getProductName}
           calculateItemTotal={calculateItemTotal}
+        />
+      )}
+
+      {selectedOrder && (
+        <CancelOrderModal
+          orderId={selectedOrder.id}
+          onConfirm={confirmCancel}
+          onCancel={() => setSelectedOrder(null)}
         />
       )}
     </main>

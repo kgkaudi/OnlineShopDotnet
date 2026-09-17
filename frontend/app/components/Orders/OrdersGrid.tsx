@@ -8,8 +8,10 @@ interface OrdersGridProps {
   products: Product[];
   reorderingId: string | null;
   cancelingId: string | null;
+
   onReorder: (order: Order) => void;
   onCancel: (order: Order) => void;
+
   formatDate: (date: string) => string;
   formatPrice: (value: number) => string;
   getStatusClasses: (status: string) => string;
@@ -50,8 +52,8 @@ export default function OrdersGrid({
             canCancel={canCancel}
             isReordering={reorderingId === order.id}
             isCanceling={cancelingId === order.id}
-            onReorder={onReorder}
-            onCancel={onCancel}
+            onReorder={() => onReorder(order)}
+            onCancel={() => onCancel(order)}
           />
         );
       })}
