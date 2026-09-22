@@ -180,13 +180,16 @@ public class CartServiceTests : RepositoryTestBase
     }
 
     [Fact]
-    public async Task RemoveItemAsync_ShouldDoNothing_WhenItemDoesNotExist()
+    public async Task RemoveItemAsync_ShouldDeleteCart_WhenItemDoesNotExist()
     {
         var userId = ObjectId.GenerateNewId().ToString();
         var productId = ObjectId.GenerateNewId().ToString();
 
         var cart = await _service.RemoveItemAsync(userId, productId);
         cart.Items.Should().BeEmpty();
+
+        var dbCart = await _repo.GetByUserIdAsync(userId);
+        dbCart.Should().BeNull();
     }
 
     // ---------------------------------------------------------

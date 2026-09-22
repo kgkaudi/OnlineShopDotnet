@@ -110,8 +110,7 @@ public class CartService : ICartService
         if (item != null)
             item.Quantity = quantity;
 
-        await _repo.UpdateAsync(cart);
-        return cart;
+        return await SaveOrDeleteAsync(cart);
     }
 
     // ---------------------------------------------------------
@@ -127,8 +126,7 @@ public class CartService : ICartService
 
         cart.Items.RemoveAll(i => i.ProductId == productId);
 
-        await _repo.UpdateAsync(cart);
-        return cart;
+        return await SaveOrDeleteAsync(cart);
     }
 
     // ---------------------------------------------------------
@@ -139,6 +137,34 @@ public class CartService : ICartService
     {
         ValidateUserId(userId);
 
-        return await _repo.ClearAsync(userId);
+        var cart = await _repo.GetByUserIdAsync(userId);
+        if (cart == null)
+            return false;
+
+        cart.Items.Clear();
+
+        await _repo.DeleteByUserIdAsync(userId);
+        return true;
     }
+
+    // ---------------------------------------------------------
+    // REMOVE REGISTRATION FROM THE DATABASE
+    // ---------------------------------------------------------
+    private async Task<Cart> SaveOrDeleteAsync(Cart cart)
+    {
+        if (cart.Items == null || cart.Items.Count == 0)
+        {
+            await _repo.DeleteByUserIdAsync(cart.UserId);
+            return new Cart
+            {
+                Id = ObjectId.GenerateNewId().ToString(),
+                UserId = cart.UserId,
+                Items = new List<CartItem>()
+            };
+        }
+
+        await _repo.UpdateAsync(cart);
+        return cart;
+    }
+
 }
