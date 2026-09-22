@@ -79,6 +79,43 @@ public class CouponRepositoryTests : RepositoryTestBase
         result!.Code.Should().Be("SUMMER");
     }
 
+    [Fact]
+    public async Task GetByCodeAsync_ShouldReturnCoupon_WhenCodeIsCaseInsensitive()
+    {
+        var coupon = new Coupon
+        {
+            Code = "SAVE10",
+            Type = "percentage",
+            Value = 10,
+            MaxUsage = 10
+        };
+
+        await _repo.CreateAsync(coupon);
+
+        var result = await _repo.GetByCodeAsync("save10");
+
+        result.Should().NotBeNull();
+        result!.Id.Should().Be(coupon.Id);
+    }
+
+    [Fact]
+    public async Task GetByCodeAsync_ShouldIgnoreLeadingAndTrailingWhitespace()
+    {
+        var coupon = new Coupon
+        {
+            Code = "SAVE10",
+            Type = "percentage",
+            Value = 10,
+            MaxUsage = 10
+        };
+
+        await _repo.CreateAsync(coupon);
+
+        var result = await _repo.GetByCodeAsync("   SAVE10   ");
+
+        result.Should().NotBeNull();
+    }
+
     // ---------------------------------------------------------
     // GET BY ID
     // ---------------------------------------------------------
@@ -169,6 +206,59 @@ public class CouponRepositoryTests : RepositoryTestBase
 
         var fetched = await _repo.GetByIdAsync(coupon.Id);
         fetched.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenMaxUsageIsNegative()
+    {
+        var coupon = new Coupon
+        {
+            Code = "NEGATIVE",
+            Type = "percentage",
+            Value = 10,
+            MaxUsage = -1
+        };
+
+        Func<Task> act = async () => await _repo.CreateAsync(coupon);
+
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenUsedCountIsNegative()
+    {
+        var coupon = new Coupon
+        {
+            Code = "BADCOUNT",
+            Type = "percentage",
+            Value = 10,
+            MaxUsage = 10,
+            UsedCount = -1
+        };
+
+        Func<Task> act = async () => await _repo.CreateAsync(coupon);
+
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>();
+    }
+
+    [Theory]
+    [InlineData("invalid")]
+    [InlineData("discount")]
+    [InlineData("percent")]
+    [InlineData("foo")]
+    public async Task CreateAsync_ShouldThrow_WhenTypeIsInvalid(string type)
+    {
+        var coupon = new Coupon
+        {
+            Code = "TYPE",
+            Type = type,
+            Value = 10,
+            MaxUsage = 10
+        };
+
+        Func<Task> act = async () => await _repo.CreateAsync(coupon);
+
+        await act.Should().ThrowAsync<ArgumentException>();
     }
 
     // ---------------------------------------------------------

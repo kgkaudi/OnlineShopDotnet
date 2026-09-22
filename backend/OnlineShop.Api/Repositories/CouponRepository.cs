@@ -1,6 +1,7 @@
 using MongoDB.Driver;
 using MongoDB.Bson;
 using OnlineShop.Api.Models;
+using System.Text.RegularExpressions;
 
 namespace OnlineShop.Api.Repositories;
 
@@ -38,16 +39,23 @@ public class CouponRepository : ICouponRepository
         if (string.IsNullOrWhiteSpace(coupon.Type))
             throw new ArgumentNullException(nameof(coupon.Type));
 
+        if (coupon.Type != "percentage" && coupon.Type != "fixed")
+            throw new ArgumentException("Invalid coupon type.", nameof(coupon.Type));
+
         if (coupon.Value <= 0)
             throw new ArgumentOutOfRangeException(nameof(coupon.Value));
+
+        if (coupon.MaxUsage < 0)
+            throw new ArgumentOutOfRangeException(nameof(coupon.MaxUsage));
+
+        if (coupon.UsedCount < 0)
+            throw new ArgumentOutOfRangeException(nameof(coupon.UsedCount));
 
         if (string.IsNullOrWhiteSpace(coupon.Id))
             coupon.Id = ObjectId.GenerateNewId().ToString();
 
         if (!ObjectId.TryParse(coupon.Id, out _))
             throw new ArgumentException("Invalid coupon ID format.", nameof(coupon.Id));
-
-        // UserId is optional — no validation needed here
 
         await _coupons.InsertOneAsync(coupon);
     }
@@ -62,7 +70,12 @@ public class CouponRepository : ICouponRepository
 
         var normalized = code.Trim();
 
-        return await _coupons.Find(c => c.Code == normalized).FirstOrDefaultAsync();
+        var filter = Builders<Coupon>.Filter.Regex(
+            c => c.Code,
+            new BsonRegularExpression($"^{Regex.Escape(normalized)}$", "i")
+        );
+
+        return await _coupons.Find(filter).FirstOrDefaultAsync();
     }
 
     // ---------------------------------------------------------

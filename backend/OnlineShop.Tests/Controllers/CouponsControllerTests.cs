@@ -386,4 +386,30 @@ public class FakeCouponService : ICouponService
 
         return Task.FromResult<Coupon?>(match);
     }
+
+    public Task<Coupon?> UseAsync(string id, string? userId = null)
+    {
+        if (!_store.ContainsKey(id))
+            return Task.FromResult<Coupon?>(null);
+
+        var coupon = _store[id];
+
+        if (!coupon.Active)
+            return Task.FromResult<Coupon?>(null);
+
+        if (coupon.Expiration <= DateTime.UtcNow)
+            return Task.FromResult<Coupon?>(null);
+
+        if (coupon.UsedCount >= coupon.MaxUsage)
+            return Task.FromResult<Coupon?>(null);
+
+        if (!string.IsNullOrWhiteSpace(coupon.UserId))
+        {
+            if (string.IsNullOrWhiteSpace(userId) || coupon.UserId != userId)
+                return Task.FromResult<Coupon?>(null);
+        }
+
+        coupon.UsedCount += 1;
+        return Task.FromResult<Coupon?>(coupon);
+    }
 }

@@ -28,13 +28,15 @@ public class CouponsController : ControllerBase
     }
 
     // ---------------------------------------------------------
-    // GET ALL (All logged-in users)
+    // GET ALL (Admin only)
     // ---------------------------------------------------------
     [Authorize]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        // Users should be able to see coupons
+        if (!IsAdmin())
+            return Unauthorized("Admin only.");
+
         var coupons = await _service.GetAllAsync();
         return Ok(coupons);
     }
