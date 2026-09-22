@@ -113,14 +113,14 @@ public class OrderService : IOrderService
         if (!IsValidObjectId(order.Id))
             return false;
 
-        var existing = await _repo.GetByIdAsync(order.Id);
+        var existing = await _repo.GetByIdAsync(order.Id!);
 
         if (existing == null)
             return false;
 
         if (!isAdmin && existing.UserId != userId)
             return false;
-
+            
         // Prevent changing the order owner.
         if (order.UserId != existing.UserId)
             return false;
