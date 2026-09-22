@@ -357,4 +357,114 @@ public class OrderServiceTests : RepositoryTestBase
         var result = await _service.DeleteAsync(order.Id, false, notOwnerId);
         result.Should().BeFalse();
     }
+
+    // ---------------------------------------------------------
+    // CANCEL — EDGE CASES
+    // ---------------------------------------------------------
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenIdNull()
+    {
+        var result = await _service.CancelAsync(null!, true, "ignored");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenIdWhitespace()
+    {
+        var result = await _service.CancelAsync("   ", true, "ignored");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenIdInvalid()
+    {
+        var result = await _service.CancelAsync("invalid-id", true, "ignored");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenUserIdInvalid()
+    {
+        var result = await _service.CancelAsync(ObjectId.GenerateNewId().ToString(), false, "invalid-id");
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenOrderNotFound()
+    {
+        var result = await _service.CancelAsync(
+            ObjectId.GenerateNewId().ToString(), true, ObjectId.GenerateNewId().ToString());
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnTrue_WhenOwnerCancelsPendingOrder()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = userId,
+            Total = 10,
+            Status = "Pending"
+        };
+        await _repo.CreateAsync(order);
+
+        var result = await _service.CancelAsync(order.Id, false, userId);
+        result.Should().BeTrue();
+
+        var fetched = await _repo.GetByIdAsync(order.Id);
+        fetched!.Status.Should().Be("Cancelled");
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenNotOwnerAndNotAdmin()
+    {
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Total = 10,
+            Status = "Pending"
+        };
+        await _repo.CreateAsync(order);
+
+        var result = await _service.CancelAsync(order.Id, false, ObjectId.GenerateNewId().ToString());
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnTrue_WhenAdmin_EvenIfNotOwner()
+    {
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Total = 10,
+            Status = "Pending"
+        };
+        await _repo.CreateAsync(order);
+
+        var result = await _service.CancelAsync(order.Id, true, ObjectId.GenerateNewId().ToString());
+        result.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenStatusNotCancelable()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = userId,
+            Total = 10,
+            Status = "Shipped"
+        };
+        await _repo.CreateAsync(order);
+
+        var result = await _service.CancelAsync(order.Id, false, userId);
+        result.Should().BeFalse();
+    }
 }

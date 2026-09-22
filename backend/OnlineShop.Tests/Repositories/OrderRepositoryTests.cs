@@ -429,4 +429,215 @@ public class OrderRepositoryTests : RepositoryTestBase
         var fetched = await _repo.GetByIdAsync(order.Id);
         fetched.Should().BeNull();
     }
+
+    // ---------------------------------------------------------
+    // CANCEL
+    // ---------------------------------------------------------
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenIdIsNull()
+    {
+        var result = await _repo.CancelAsync(null!, ObjectId.GenerateNewId().ToString(), false);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenIdIsInvalid()
+    {
+        var result = await _repo.CancelAsync("invalid-id", ObjectId.GenerateNewId().ToString(), false);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenUserIdIsNull()
+    {
+        var result = await _repo.CancelAsync(ObjectId.GenerateNewId().ToString(), null!, false);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenUserIdIsInvalid()
+    {
+        var result = await _repo.CancelAsync(ObjectId.GenerateNewId().ToString(), "invalid-id", false);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenUserIdIsInvalid_EvenForAdmin()
+    {
+        // The userId shape is still validated up front, even though an
+        // admin's userId isn't used as an ownership filter.
+        var result = await _repo.CancelAsync(ObjectId.GenerateNewId().ToString(), "invalid-id", true);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenOrderDoesNotExist()
+    {
+        var result = await _repo.CancelAsync(
+            ObjectId.GenerateNewId().ToString(),
+            ObjectId.GenerateNewId().ToString(),
+            false);
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenNotOwnerAndNotAdmin()
+    {
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Total = 10,
+            Status = "Pending"
+        };
+        await _repo.CreateAsync(order);
+
+        var result = await _repo.CancelAsync(
+            order.Id,
+            ObjectId.GenerateNewId().ToString(), // different user
+            false);
+
+        result.Should().BeFalse();
+
+        var fetched = await _repo.GetByIdAsync(order.Id);
+        fetched!.Status.Should().Be("Pending"); // unchanged
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnTrue_WhenOwnerCancelsPendingOrder()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = userId,
+            Total = 10,
+            Status = "Pending"
+        };
+        await _repo.CreateAsync(order);
+
+        var result = await _repo.CancelAsync(order.Id, userId, false);
+        result.Should().BeTrue();
+
+        var fetched = await _repo.GetByIdAsync(order.Id);
+        fetched!.Status.Should().Be("Cancelled");
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnTrue_WhenOwnerCancelsProcessingOrder()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = userId,
+            Total = 10,
+            Status = "Processing"
+        };
+        await _repo.CreateAsync(order);
+
+        var result = await _repo.CancelAsync(order.Id, userId, false);
+        result.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("Shipped")]
+    [InlineData("Delivered")]
+    [InlineData("Cancelled")]
+    public async Task CancelAsync_ShouldReturnFalse_WhenStatusNotCancelable(string status)
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = userId,
+            Total = 10,
+            Status = status
+        };
+        await _repo.CreateAsync(order);
+
+        var result = await _repo.CancelAsync(order.Id, userId, false);
+        result.Should().BeFalse();
+
+        var fetched = await _repo.GetByIdAsync(order.Id);
+        fetched!.Status.Should().Be(status); // unchanged
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenStatusNotCancelable_EvenForAdmin()
+    {
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Total = 10,
+            Status = "Shipped"
+        };
+        await _repo.CreateAsync(order);
+
+        var result = await _repo.CancelAsync(order.Id, ObjectId.GenerateNewId().ToString(), true);
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnTrue_WhenAdminCancelsAnotherUsersOrder()
+    {
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = ObjectId.GenerateNewId().ToString(),
+            Total = 10,
+            Status = "Pending"
+        };
+        await _repo.CreateAsync(order);
+
+        var result = await _repo.CancelAsync(order.Id, ObjectId.GenerateNewId().ToString(), true);
+        result.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("PENDING")]
+    [InlineData("pending")]
+    [InlineData("PROCESSING")]
+    [InlineData("processing")]
+    public async Task CancelAsync_ShouldBeCaseInsensitive_ForStatusMatching(string storedStatus)
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = userId,
+            Total = 10,
+            Status = storedStatus
+        };
+        await _repo.CreateAsync(order);
+
+        var result = await _repo.CancelAsync(order.Id, userId, false);
+        result.Should().BeTrue();
+
+        var fetched = await _repo.GetByIdAsync(order.Id);
+        fetched!.Status.Should().Be("Cancelled");
+    }
+
+    [Fact]
+    public async Task CancelAsync_ShouldReturnFalse_WhenCancellingAlreadyCancelledOrder()
+    {
+        var userId = ObjectId.GenerateNewId().ToString();
+        var order = new Order
+        {
+            Id = ObjectId.GenerateNewId().ToString(),
+            UserId = userId,
+            Total = 10,
+            Status = "Pending"
+        };
+        await _repo.CreateAsync(order);
+
+        var first = await _repo.CancelAsync(order.Id, userId, false);
+        var second = await _repo.CancelAsync(order.Id, userId, false);
+
+        first.Should().BeTrue();
+        second.Should().BeFalse();
+    }
 }

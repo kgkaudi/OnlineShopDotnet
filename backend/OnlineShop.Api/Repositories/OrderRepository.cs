@@ -113,7 +113,7 @@ public class OrderRepository : IOrderRepository
         return result.DeletedCount == 1;
     }
 
-public async Task<bool> CancelAsync(string id, string userId, bool isAdmin)
+    public async Task<bool> CancelAsync(string id, string userId, bool isAdmin)
     {
         if (string.IsNullOrWhiteSpace(id) || !ObjectId.TryParse(id, out _))
             return false;
@@ -123,11 +123,12 @@ public async Task<bool> CancelAsync(string id, string userId, bool isAdmin)
 
         var filterBuilder = Builders<Order>.Filter;
 
-        var filter = filterBuilder.Eq(order => order.Id, id)
-            & filterBuilder.In(
-                order => order.Status,
-                new[] { "Pending", "pending", "Processing", "processing" }
-            );
+        var cancelableStatusFilter = filterBuilder.Or(
+            filterBuilder.Regex(order => order.Status, new BsonRegularExpression("^Pending$", "i")),
+            filterBuilder.Regex(order => order.Status, new BsonRegularExpression("^Processing$", "i"))
+        );
+
+        var filter = filterBuilder.Eq(order => order.Id, id) & cancelableStatusFilter;
 
         if (!isAdmin)
             filter &= filterBuilder.Eq(order => order.UserId, userId);

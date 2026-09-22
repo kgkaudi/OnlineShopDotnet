@@ -7,6 +7,7 @@ using OnlineShop.Api.Services;
 using Xunit;
 using MongoDB.Bson;
 using System.Security.Claims;
+using System.Linq;
 
 public class OrdersControllerTests
 {
@@ -346,6 +347,125 @@ public class OrdersControllerTests
         first.Should().BeOfType<OkObjectResult>();
         second.Should().BeOfType<NotFoundObjectResult>();
     }
+
+
+    // ---------------------------------------------------------
+    // CANCEL
+    // ---------------------------------------------------------
+
+    [Fact]
+    public async Task Cancel_ShouldReturnUnauthorized_WhenUserIdMissing()
+    {
+        var controller = CreateController(new FakeOrderService(), null);
+
+        var result = await controller.Cancel(ObjectId.GenerateNewId().ToString());
+
+        result.Should().BeOfType<UnauthorizedObjectResult>();
+    }
+
+    [Fact]
+    public async Task Cancel_ShouldReturnBadRequest_WhenOrderIdInvalid()
+    {
+        var controller = CreateController(new FakeOrderService(), ObjectId.GenerateNewId().ToString());
+
+        var result = await controller.Cancel("invalid-id");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task Cancel_ShouldReturnNotFound_WhenOrderMissing()
+    {
+        var controller = CreateController(new FakeOrderService(), ObjectId.GenerateNewId().ToString());
+
+        var result = await controller.Cancel(ObjectId.GenerateNewId().ToString());
+
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task Cancel_ShouldReturnForbid_WhenUserNotOwner()
+    {
+        var service = new FakeOrderService();
+        var orderId = ObjectId.GenerateNewId().ToString();
+        service.AddOrder(orderId, "owner123");
+
+        var controller = CreateController(service, ObjectId.GenerateNewId().ToString());
+
+        var result = await controller.Cancel(orderId);
+
+        result.Should().BeOfType<ForbidResult>();
+    }
+
+    [Theory]
+    [InlineData("Shipped")]
+    [InlineData("Delivered")]
+    [InlineData("Cancelled")]
+    public async Task Cancel_ShouldReturnConflict_WhenStatusNotCancelable(string status)
+    {
+        var service = new FakeOrderService();
+        var userId = ObjectId.GenerateNewId().ToString();
+        var orderId = ObjectId.GenerateNewId().ToString();
+        service.AddOrder(orderId, userId, status);
+
+        var controller = CreateController(service, userId);
+
+        var result = await controller.Cancel(orderId);
+
+        result.Should().BeOfType<ConflictObjectResult>();
+    }
+
+    [Fact]
+    public async Task Cancel_ShouldReturnConflict_WhenServiceCallFails()
+    {
+        var service = new FakeOrderService();
+        var userId = ObjectId.GenerateNewId().ToString();
+        var orderId = ObjectId.GenerateNewId().ToString();
+        service.AddOrder(orderId, userId, "Pending");
+
+        // Simulates a race — the controller's own pre-check sees a
+        // cancelable status, but the underlying service call still fails
+        // (e.g. another request cancelled it a moment earlier).
+        service.ForceCancelFailure = true;
+
+        var controller = CreateController(service, userId);
+
+        var result = await controller.Cancel(orderId);
+
+        result.Should().BeOfType<ConflictObjectResult>();
+    }
+
+    [Fact]
+    public async Task Cancel_ShouldReturnOk_WhenOwnerCancelsPendingOrder()
+    {
+        var service = new FakeOrderService();
+        var userId = ObjectId.GenerateNewId().ToString();
+        var orderId = ObjectId.GenerateNewId().ToString();
+        service.AddOrder(orderId, userId, "Pending");
+
+        var controller = CreateController(service, userId);
+
+        var result = await controller.Cancel(orderId);
+
+        result.Should().BeOfType<OkObjectResult>();
+
+        var order = (Order)((OkObjectResult)result).Value!;
+        order.Status.Should().Be("Cancelled");
+    }
+
+    [Fact]
+    public async Task Cancel_ShouldReturnOk_WhenAdminCancelsAnotherUsersOrder()
+    {
+        var service = new FakeOrderService();
+        var orderId = ObjectId.GenerateNewId().ToString();
+        service.AddOrder(orderId, "owner123", "Processing");
+
+        var controller = CreateController(service, ObjectId.GenerateNewId().ToString(), isAdmin: true);
+
+        var result = await controller.Cancel(orderId);
+
+        result.Should().BeOfType<OkObjectResult>();
+    }
 }
 
 // ---------------------------------------------------------
@@ -356,12 +476,18 @@ public class FakeOrderService : IOrderService
 {
     private readonly Dictionary<string, Order> _orders = new();
 
-    public void AddOrder(string id, string userId)
+    private static readonly HashSet<string> CancelableStatuses =
+        new(StringComparer.OrdinalIgnoreCase) { "Pending", "Processing" };
+
+    public bool ForceCancelFailure { get; set; } = false;
+
+    public void AddOrder(string id, string userId, string status = "Pending")
     {
         _orders[id] = new Order
         {
             Id = id,
             UserId = userId,
+            Status = status,
             Items = new List<OrderItem>
             {
                 new OrderItem { ProductId = "p1", Quantity = 1 }
@@ -418,9 +544,6 @@ public class FakeOrderService : IOrderService
         if (!isAdmin && existing.UserId != userId)
             return Task.FromResult(false);
 
-        // Preserve the order's ownership across an update — a client
-        // shouldn't be able to reassign UserId just by omitting it (or
-        // sending a different value) in the update body.
         order.UserId = existing.UserId;
 
         _orders[order.Id] = order;
@@ -438,6 +561,26 @@ public class FakeOrderService : IOrderService
             return Task.FromResult(false);
 
         _orders.Remove(id);
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> CancelAsync(string id, bool isAdmin, string userId)
+    {
+        if (!_orders.ContainsKey(id))
+            return Task.FromResult(false);
+
+        var existing = _orders[id];
+
+        if (!isAdmin && existing.UserId != userId)
+            return Task.FromResult(false);
+
+        if (!CancelableStatuses.Contains(existing.Status))
+            return Task.FromResult(false);
+
+        if (ForceCancelFailure)
+            return Task.FromResult(false);
+
+        existing.Status = "Cancelled";
         return Task.FromResult(true);
     }
 }
