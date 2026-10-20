@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/src/lib/api";
+import { api, type Order } from "@/src/lib/api";
 import { useRouter } from "next/navigation";
 import React from "react";
 

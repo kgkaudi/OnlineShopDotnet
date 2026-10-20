@@ -103,6 +103,7 @@ export interface Order {
   total: number;
   createdAt: string;
   status: string;
+  userFullName?: string;
 }
 
 export interface Coupon {

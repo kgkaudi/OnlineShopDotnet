@@ -1,17 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { api } from "@/src/lib/api";
 
 interface Props {
   order: any;
-  onDelete: (id: string) => void;
+  onDeleteRequest: () => void;
+  deletingId?: string | null;
 }
 
-export default function AdminOrderCardMobile({ order, onDelete }: Props) {
-  function onDeleteRequest(order: any): void {
-    throw new Error("Function not implemented.");
-  }
+export default function AdminOrderCardMobile({
+  order,
+  onDeleteRequest,
+  deletingId,
+}: Props) {
+  const isDeleting = deletingId === order.id;
 
   return (
     <div className="border rounded-lg bg-white p-4 shadow-sm">
@@ -32,10 +34,12 @@ export default function AdminOrderCardMobile({ order, onDelete }: Props) {
         </Link>
 
         <button
-          className="px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-          onClick={() => onDeleteRequest(order)}
+          type="button"
+          disabled={isDeleting}
+          className="px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={onDeleteRequest}
         >
-          Delete
+          {isDeleting ? "Deleting..." : "Delete"}
         </button>
       </div>
     </div>
